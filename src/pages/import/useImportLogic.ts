@@ -27,27 +27,25 @@ export function useImportLogic(initialItems: UploadQueueItem[] = []) {
   const startParsing = useCallback(
     async (regions: RegionConfig) => {
       const toParse = queue.filter((i) => i.status === "queued" && i.file);
-      await Promise.all(
-        toParse.map(async (item) => {
-          updateItem(item.id, { status: "parsing" });
-          try {
-            const formData = new FormData();
-            formData.append("image", item.file!);
-            formData.append("regions", JSON.stringify(regions));
+      for (const item of toParse) {
+        updateItem(item.id, { status: "parsing" });
+        try {
+          const formData = new FormData();
+          formData.append("image", item.file!);
+          formData.append("regions", JSON.stringify(regions));
 
-            const res = await fetch("/api/v1/missions/parse", {
-              method: "POST",
-              body: formData,
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const res = await fetch("/api/v1/missions/parse", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-            const result: ParsedMission = await res.json();
-            updateItem(item.id, { status: "ok", result });
-          } catch {
-            updateItem(item.id, { status: "error" });
-          }
-        }),
-      );
+          const result: ParsedMission = await res.json();
+          updateItem(item.id, { status: "ok", result });
+        } catch {
+          updateItem(item.id, { status: "error" });
+        }
+      }
     },
     [queue, updateItem],
   );
