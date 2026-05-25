@@ -1,17 +1,22 @@
-import type { OptimizeResult, ParsedMission } from "@/types";
-import { MISSION_COLORS } from "@/types";
+import type { MissionLeg, OptimizeResult, ParsedMission } from "@/types"
+import { MISSION_COLORS } from "@/types"
 
 interface ContractScreenProps {
-  missions: ParsedMission[];
-  optimizeResult: OptimizeResult;
-  onBack: () => void;
-  onNext: () => void;
+  missions: ParsedMission[]
+  optimizeResult: OptimizeResult
+  onBack: () => void
+  onNext: () => void
 }
 
-export function ContractScreen({ missions, optimizeResult, onBack, onNext }: ContractScreenProps) {
+export function ContractScreen({
+  missions,
+  optimizeResult,
+  onBack,
+  onNext,
+}: ContractScreenProps) {
   const selected = optimizeResult.selectedMissionIndices
     .map((idx) => ({ idx, mission: missions[idx] }))
-    .filter((m) => m.mission != null);
+    .filter((m) => m.mission != null)
 
   return (
     <div className="flex h-full flex-col">
@@ -20,7 +25,9 @@ export function ContractScreen({ missions, optimizeResult, onBack, onNext }: Con
           <div className="font-mono text-[10.5px] tracking-[0.14em] uppercase text-text-dim">
             Phase 04
           </div>
-          <h1 className="mt-1 text-2xl font-medium tracking-tight">Contracts</h1>
+          <h1 className="mt-1 text-2xl font-medium tracking-tight">
+            Contracts
+          </h1>
           <p className="mt-2 max-w-[560px] text-sm text-muted-foreground">
             Review all active contracts before you start hauling.
           </p>
@@ -61,24 +68,72 @@ export function ContractScreen({ missions, optimizeResult, onBack, onNext }: Con
         )}
       </div>
     </div>
-  );
+  )
 }
 
-function ContractCard({ mission, color }: { mission: ParsedMission; color: string }) {
-  const totalScu = mission.deliveries.reduce((s, d) => s + (d.scu ?? 0), 0);
+// Mirrors the backend optimizer: a pickup with no SCU is an alternative source, so
+// unset-SCU pickups of the same material collapse into a single "collect from any of" line.
+// Fixed-SCU pickups (and lone / unknown-material unset ones) stay individual, since the haul visits them all.
+function pickupLines(mission: ParsedMission): string[] {
+  const individual: string[] = []
+  const unsetByCargo = new Map<string, MissionLeg[]>()
+
+  for (const pickup of mission.pickups) {
+    if (!pickup.location) continue
+    const cargo = pickup.cargoType?.trim() || mission.cargoType?.trim()
+    const unset = pickup.scu == null || pickup.scu <= 0
+    if (unset && cargo) {
+      const group = unsetByCargo.get(cargo) ?? []
+      group.push(pickup)
+      unsetByCargo.set(cargo, group)
+    } else {
+      const amount =
+        pickup.scu != null && pickup.scu > 0 ? `${pickup.scu} SCU` : "cargo"
+      individual.push(`collect ${amount} from ${pickup.location}`)
+    }
+  }
+
+  const lines = [...individual]
+  for (const [cargo, group] of unsetByCargo) {
+    const locations = [...new Set(group.map((p) => p.location))]
+    if (locations.length === 1) {
+      lines.push(`collect cargo from ${locations[0]}`)
+    } else {
+      lines.push(`collect ${cargo} from any of: ${locations.join(" / ")}`)
+    }
+  }
+  return lines
+}
+
+function ContractCard({
+  mission,
+  color,
+}: {
+  mission: ParsedMission
+  color: string
+}) {
+  const totalScu = mission.deliveries.reduce((s, d) => s + (d.scu ?? 0), 0)
+  const lines = pickupLines(mission)
 
   return (
     <div className="relative overflow-hidden rounded-[10px] border border-border bg-surface px-5 py-4">
-      <div className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: color }} />
+      <div
+        className="absolute bottom-0 left-0 top-0 w-[3px]"
+        style={{ background: color }}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="text-[14px] font-medium">{mission.title}</div>
         <div className="flex shrink-0 items-center gap-3 font-mono text-[11px] text-muted-foreground">
           {totalScu > 0 && (
-            <span className="rounded bg-surface-2 px-2 py-0.5">{totalScu} SCU</span>
+            <span className="rounded bg-surface-2 px-2 py-0.5">
+              {totalScu} SCU
+            </span>
           )}
           {mission.xp != null && (
-            <span className="rounded bg-surface-2 px-2 py-0.5">{mission.xp} XP</span>
+            <span className="rounded bg-surface-2 px-2 py-0.5">
+              {mission.xp} XP
+            </span>
           )}
           {mission.rewardUec != null && (
             <span className="rounded bg-surface-2 px-2 py-0.5">
@@ -93,17 +148,17 @@ function ContractCard({ mission, color }: { mission: ParsedMission; color: strin
           <div key={di}>
             <div className="text-foreground">
               Deliver 0/{delivery.scu ?? totalScu} SCU of{" "}
-              {delivery.cargoType ?? mission.cargoType ?? "cargo"} to {delivery.location}
+              {delivery.cargoType ?? mission.cargoType ?? "cargo"} to{" "}
+              {delivery.location}
             </div>
-            {mission.pickups.map((pickup, pi) => (
+            {lines.map((line, pi) => (
               <div key={pi} className="mt-0.5 pl-4 text-muted-foreground">
-                — collect {pickup.scu != null ? `${pickup.scu} SCU` : "cargo"} from{" "}
-                {pickup.location}
+                — {line}
               </div>
             ))}
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }
