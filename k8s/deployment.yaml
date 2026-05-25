@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hauling-companion
+  labels:
+    app: hauling-companion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hauling-companion
+  template:
+    metadata:
+      labels:
+        app: hauling-companion
+    spec:
+      containers:
+        - name: hauling-companion
+          image: ghcr.io/janne6565/hauling-companion:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20

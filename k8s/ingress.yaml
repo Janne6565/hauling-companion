@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hauling-companion
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - hauling-companion.jannekeipert.de
+      secretName: multi-domain-cert
+  rules:
+    - host: hauling-companion.jannekeipert.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hauling-companion
+                port:
+                  number: 80
