@@ -191,7 +191,7 @@ export function HaulScreen({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[10.5px] tracking-[0.14em] uppercase text-text-dim">
-            Phase 04
+            Phase 05
           </div>
           <h1 className="mt-1 text-2xl font-medium tracking-tight">
             Hauling
@@ -847,7 +847,7 @@ function FullscreenOverlay({
       <div className="flex shrink-0 items-center justify-between px-8 py-4">
         <div className="flex items-center gap-3">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">
-            Phase 04
+            Phase 05
           </span>
           <span className="text-text-dim">·</span>
           <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">

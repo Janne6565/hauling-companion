@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { ImportScreen } from "@/pages/import";
 import { ReviewScreen } from "@/pages/review";
 import { PlanScreen } from "@/pages/plan";
+import { ContractScreen } from "@/pages/contract";
 import { HaulScreen } from "@/pages/haul";
 import { useLocalStorage } from "@/lib/use-local-storage";
 
@@ -32,12 +33,19 @@ export default function App() {
   }
 
   function handlePlanNext(result: OptimizeResult, updated: ParsedMission[]) {
-    // Reset haul session state for the new run
+    setOptimizeResult(result);
+    setMissions(updated);
+    setPhase("contract");
+  }
+
+  function handleContractBack() {
+    setPhase("plan");
+  }
+
+  function handleContractNext() {
     localStorage.removeItem("sch:haul:stopIdx");
     localStorage.removeItem("sch:haul:completed");
     localStorage.removeItem("sch:haul:delivered");
-    setOptimizeResult(result);
-    setMissions(updated);
     setPhase("haul");
   }
 
@@ -71,6 +79,25 @@ export default function App() {
           onBack={handlePlanBack}
           onNext={handlePlanNext}
         />
+      )}
+      {phase === "contract" && optimizeResult && (
+        <ContractScreen
+          missions={missions}
+          optimizeResult={optimizeResult}
+          onBack={handleContractBack}
+          onNext={handleContractNext}
+        />
+      )}
+      {phase === "contract" && !optimizeResult && (
+        <div className="py-24 text-center text-sm text-text-dim">
+          No active plan. Go back to plan a route.
+          <button
+            className="mt-4 block mx-auto rounded border border-border px-4 py-2 text-[13px] text-muted-foreground hover:text-foreground"
+            onClick={() => setPhase("plan")}
+          >
+            ← Back to plan
+          </button>
+        </div>
       )}
       {phase === "haul" && optimizeResult && (
         <HaulScreen
@@ -117,7 +144,7 @@ function DoneScreen({
     <div className="flex flex-col items-center gap-6 py-20">
       <div className="text-center">
         <div className="font-mono text-[10.5px] tracking-[0.14em] uppercase text-text-dim">
-          Phase 05
+          Phase 06
         </div>
         <h1 className="mt-2 text-3xl font-medium tracking-tight">
           Haul complete

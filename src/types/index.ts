@@ -39,7 +39,7 @@ export interface UploadQueueItem {
   result?: ParsedMission;
 }
 
-export type Phase = 'import' | 'review' | 'plan' | 'haul' | 'done';
+export type Phase = 'import' | 'review' | 'plan' | 'contract' | 'haul' | 'done';
 
 export interface PhaseConfig {
   id: Phase;
@@ -48,11 +48,12 @@ export interface PhaseConfig {
 }
 
 export const PHASES: PhaseConfig[] = [
-  { id: 'import', num: '01', label: 'Import' },
-  { id: 'review', num: '02', label: 'Review' },
-  { id: 'plan',   num: '03', label: 'Plan' },
-  { id: 'haul',   num: '04', label: 'Haul' },
-  { id: 'done',   num: '05', label: 'Complete' },
+  { id: 'import',   num: '01', label: 'Import' },
+  { id: 'review',   num: '02', label: 'Review' },
+  { id: 'plan',     num: '03', label: 'Plan' },
+  { id: 'contract', num: '04', label: 'Contract' },
+  { id: 'haul',     num: '05', label: 'Haul' },
+  { id: 'done',     num: '06', label: 'Complete' },
 ];
 
 // ── Phase 2 — Optimization types ─────────────────────────────────────────────
