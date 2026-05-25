@@ -1,5 +1,7 @@
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { PHASES, type Phase } from "@/types"
+import { WalkthroughModal } from "@/components/walkthrough-modal"
 
 interface AppShellProps {
   phase: Phase
@@ -18,6 +20,7 @@ export function AppShell({
   const unlockedIdx = unlockedUpTo
     ? PHASES.findIndex((p) => p.id === unlockedUpTo)
     : phaseIdx
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false)
 
   return (
     <div className="flex h-screen overflow-hidden flex-col">
@@ -41,7 +44,7 @@ export function AppShell({
           <span>HAULER · v0.1</span>
         </div>
 
-        <nav className="flex flex-1 items-center gap-1">
+        <nav className="flex items-center gap-1">
           {PHASES.map((p, i) => {
             const isActive = p.id === phase
             const isDone = i < phaseIdx
@@ -81,11 +84,24 @@ export function AppShell({
             )
           })}
         </nav>
+
+        <button
+          type="button"
+          onClick={() => setWalkthroughOpen(true)}
+          className="ml-auto rounded border border-border px-3 py-1.5 font-mono text-[11px] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+        >
+          Walkthrough
+        </button>
       </header>
 
       <main className="mx-auto w-full max-w-[1480px] flex-1 overflow-hidden px-10 py-8">
         {children}
       </main>
+
+      <WalkthroughModal
+        open={walkthroughOpen}
+        onClose={() => setWalkthroughOpen(false)}
+      />
     </div>
   )
 }
