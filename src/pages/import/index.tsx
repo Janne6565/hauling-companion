@@ -48,7 +48,6 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
     isDragOver,
     queue,
     parsedMissions,
-    referenceFile,
     queuedCount,
     parsingCount,
     okCount,

@@ -661,8 +661,8 @@ function ItemList({
   label,
   items,
   missions,
-  bullet,
-  missionIndices,
+  bullet: _bullet,
+  missionIndices: _missionIndices,
 }: {
   label: string;
   items: StopItem[];

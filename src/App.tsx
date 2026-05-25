@@ -94,7 +94,6 @@ export default function App() {
       {phase === "done" && (
         <DoneScreen
           optimizeResult={optimizeResult}
-          missions={missions}
           onNewHaul={() => {
             setOptimizeResult(null);
             setPhase("import");
@@ -109,11 +108,9 @@ export default function App() {
 
 function DoneScreen({
   optimizeResult,
-  missions,
   onNewHaul,
 }: {
   optimizeResult: OptimizeResult | null;
-  missions: ParsedMission[];
   onNewHaul: () => void;
 }) {
   return (
