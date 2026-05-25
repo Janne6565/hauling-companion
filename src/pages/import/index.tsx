@@ -1,37 +1,43 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ParsedMission, RegionConfig, UploadQueueItem } from "@/types";
-import { cn } from "@/lib/utils";
-import { useImportLogic } from "./useImportLogic";
-import { RegionConfigModal } from "./RegionConfigModal";
+import { useEffect, useMemo, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
+import type { ParsedMission, RegionConfig, UploadQueueItem } from "@/types"
+import { RegionConfigModal } from "./RegionConfigModal"
+import { useImportLogic } from "./useImportLogic"
 
-const REGIONS_KEY = "hauler_ocr_regions";
+const REGIONS_KEY = "hauler_ocr_regions"
 
 function loadRegionConfig(): RegionConfig | null {
   try {
-    const raw = localStorage.getItem(REGIONS_KEY);
-    return raw ? (JSON.parse(raw) as RegionConfig) : null;
+    const raw = localStorage.getItem(REGIONS_KEY)
+    return raw ? (JSON.parse(raw) as RegionConfig) : null
   } catch {
-    return null;
+    return null
   }
 }
 
 function saveRegionConfig(config: RegionConfig) {
-  localStorage.setItem(REGIONS_KEY, JSON.stringify(config));
+  localStorage.setItem(REGIONS_KEY, JSON.stringify(config))
 }
 
 interface ImportScreenProps {
-  onNext: (missions: ParsedMission[]) => void;
-  initialMissions?: ParsedMission[];
+  onNext: (missions: ParsedMission[]) => void
+  initialMissions?: ParsedMission[]
 }
 
-export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [regionConfig, setRegionConfig] = useState<RegionConfig | null>(loadRegionConfig);
-  const [showModal, setShowModal] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
+export function ImportScreen({
+  onNext,
+  initialMissions = [],
+}: ImportScreenProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [regionConfig, setRegionConfig] = useState<RegionConfig | null>(
+    loadRegionConfig
+  )
+  const [showModal, setShowModal] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [previewFile, setPreviewFile] = useState<File | null>(null)
 
   // Restore queue from previously reviewed missions (no file objects — they're gone)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally captures initialMissions once on mount
   const initialItems = useMemo<UploadQueueItem[]>(
     () =>
       initialMissions.map((m, i) => ({
@@ -41,8 +47,8 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
         result: m,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [], // only run on mount
-  );
+    [] // only run on mount
+  )
 
   const {
     isDragOver,
@@ -59,45 +65,49 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
     removeItem,
     clearQueue,
     startParsing,
-  } = useImportLogic(initialItems);
+  } = useImportLogic(initialItems)
 
   // All files currently in queue (for image switcher in region modal)
   const queueFiles = useMemo(
     () => queue.flatMap((i) => (i.file ? [i.file] : [])),
-    [queue],
-  );
+    [queue]
+  )
 
   // Full-screen preview URL — created/revoked as previewFile changes
   const previewUrl = useMemo(
     () => (previewFile ? URL.createObjectURL(previewFile) : null),
-    [previewFile],
-  );
+    [previewFile]
+  )
   useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
-  }, [previewUrl]);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
 
-  const isCurrentlyParsing = isParsing || parsingCount > 0;
-  const canParse = regionConfig != null && queuedCount > 0 && !isCurrentlyParsing;
+  const isCurrentlyParsing = isParsing || parsingCount > 0
+  const canParse =
+    regionConfig != null && queuedCount > 0 && !isCurrentlyParsing
 
-  const buttonPhase: "parse" | "parsing" | "review" =
-    isCurrentlyParsing ? "parsing"
-    : parsedMissions.length > 0 && queuedCount === 0 ? "review"
-    : "parse";
+  const buttonPhase: "parse" | "parsing" | "review" = isCurrentlyParsing
+    ? "parsing"
+    : parsedMissions.length > 0 && queuedCount === 0
+      ? "review"
+      : "parse"
 
   // Show "Back to Review" when there are existing results AND new items still queued
-  const showBackToReview = parsedMissions.length > 0 && queuedCount > 0;
+  const showBackToReview = parsedMissions.length > 0 && queuedCount > 0
 
   async function handleParseClick() {
-    if (!regionConfig || !canParse) return;
-    setIsParsing(true);
-    await startParsing(regionConfig);
-    setIsParsing(false);
+    if (!regionConfig || !canParse) return
+    setIsParsing(true)
+    await startParsing(regionConfig)
+    setIsParsing(false)
   }
 
   function handleSaveRegions(config: RegionConfig) {
-    saveRegionConfig(config);
-    setRegionConfig(config);
-    setShowModal(false);
+    saveRegionConfig(config)
+    setRegionConfig(config)
+    setShowModal(false)
   }
 
   return (
@@ -114,17 +124,21 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
 
       {/* Full-screen image preview */}
       {previewUrl && (
-        <div
-          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/90"
-          onClick={() => setPreviewFile(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+          <button
+            type="button"
+            aria-label="Close preview"
+            className="absolute inset-0 cursor-zoom-out"
+            onClick={() => setPreviewFile(null)}
+          />
           <img
             src={previewUrl}
             alt="Screenshot preview"
-            className="max-h-full max-w-full object-contain"
+            className="relative max-h-full max-w-full object-contain"
             draggable={false}
           />
           <button
+            type="button"
             className="absolute right-5 top-5 rounded border border-white/20 bg-black/50 px-3 py-1.5 font-mono text-[11px] text-white hover:bg-black/70"
             onClick={() => setPreviewFile(null)}
           >
@@ -148,13 +162,14 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
 
       <div className="grid min-h-0 flex-1 grid-cols-[1.2fr_1fr] gap-8 max-[1100px]:grid-cols-1">
         {/* Drop zone */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop target has no keyboard equivalent; the "Browse files" button is the accessible alternative */}
         <div
           className={cn(
             "relative flex flex-col items-center justify-center rounded-[10px] px-8 py-8 text-center transition-colors",
             "border-[1.5px] border-dashed",
             isDragOver
               ? "border-primary dropzone-hatch-active"
-              : "border-border-strong dropzone-hatch",
+              : "border-border-strong dropzone-hatch"
           )}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -179,6 +194,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
 
           <div className="mt-4 flex justify-center">
             <button
+              type="button"
               className="inline-flex items-center gap-2 rounded border border-border bg-surface px-4 py-2 text-[13px] font-medium transition-colors hover:border-border-strong hover:bg-surface-2"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -210,6 +226,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
             )}
             {queue.length > 0 && (
               <button
+                type="button"
                 onClick={clearQueue}
                 className="ml-auto font-mono text-[10px] uppercase tracking-[0.06em] text-text-dim hover:text-danger transition-colors"
               >
@@ -231,10 +248,12 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
                   style={{ gridTemplateColumns: "36px 1fr auto" }}
                 >
                   {/* Thumbnail — clickable if file is available */}
-                  <div
+                  <button
+                    type="button"
+                    disabled={!item.file}
                     className={cn(
                       "grid h-9 w-9 place-items-center rounded-[4px] border border-border font-mono text-[10px] text-text-dim",
-                      item.file && "cursor-zoom-in hover:border-border-strong",
+                      item.file && "cursor-zoom-in hover:border-border-strong"
                     )}
                     style={{
                       background:
@@ -244,7 +263,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
                     title={item.file ? "Click to preview" : undefined}
                   >
                     SS
-                  </div>
+                  </button>
 
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <div className="truncate text-[13px]">{item.filename}</div>
@@ -253,8 +272,9 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
                         "font-mono text-[10.5px] tracking-[0.06em]",
                         item.status === "ok" && "text-success",
                         item.status === "error" && "text-danger",
-                        (item.status === "queued" || item.status === "parsing") &&
-                          "text-muted-foreground",
+                        (item.status === "queued" ||
+                          item.status === "parsing") &&
+                          "text-muted-foreground"
                       )}
                     >
                       {item.status === "ok" && "✓ PARSED"}
@@ -265,6 +285,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
                   </div>
 
                   <button
+                    type="button"
                     className="font-mono text-[11px] text-text-dim hover:text-foreground"
                     onClick={() => removeItem(item.id)}
                   >
@@ -290,6 +311,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
           </div>
           <div className="group relative">
             <button
+              type="button"
               disabled={queueFiles.length === 0}
               onClick={() => setShowModal(true)}
               className={cn(
@@ -298,7 +320,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
                   ? regionConfig
                     ? "border-[oklch(0.50_0.10_150)] text-success hover:bg-success/10"
                     : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground"
-                  : "cursor-not-allowed border-border text-text-dim opacity-50",
+                  : "cursor-not-allowed border-border text-text-dim opacity-50"
               )}
             >
               {regionConfig ? "✓ Regions set · Edit" : "Configure Regions"}
@@ -315,6 +337,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
       {/* Bottom actions */}
       <div className="mt-6 shrink-0 flex justify-end gap-3">
         <button
+          type="button"
           className="inline-flex items-center gap-2 rounded border border-transparent bg-transparent px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => onNext([])}
         >
@@ -323,6 +346,7 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
 
         {showBackToReview && (
           <button
+            type="button"
             className="inline-flex items-center gap-2 rounded border border-border px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
             onClick={() => onNext(parsedMissions)}
           >
@@ -332,21 +356,24 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
 
         {buttonPhase === "review" ? (
           <button
+            type="button"
             className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             onClick={() => onNext(parsedMissions)}
           >
-            Review {parsedMissions.length} mission{parsedMissions.length !== 1 ? "s" : ""}
+            Review {parsedMissions.length} mission
+            {parsedMissions.length !== 1 ? "s" : ""}
             <span className="font-mono opacity-70">→</span>
           </button>
         ) : (
           <button
+            type="button"
             disabled={!canParse}
             onClick={handleParseClick}
             className={cn(
               "inline-flex items-center gap-2 rounded px-4 py-2 text-[13px] font-semibold transition-colors",
               canParse
                 ? "bg-primary text-primary-foreground hover:opacity-90"
-                : "cursor-not-allowed bg-surface text-muted-foreground",
+                : "cursor-not-allowed bg-surface text-muted-foreground"
             )}
           >
             {buttonPhase === "parsing"
@@ -356,5 +383,5 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
         )}
       </div>
     </div>
-  );
+  )
 }

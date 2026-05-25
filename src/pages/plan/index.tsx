@@ -1,4 +1,6 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { useLocalStorage } from "@/lib/use-local-storage"
+import { cn } from "@/lib/utils"
 import type {
   LocationDto,
   LockState,
@@ -8,65 +10,100 @@ import type {
   ShipId,
   Stop,
   StopItem,
-} from "@/types";
-import { MISSION_COLORS, MISSION_COLORS_SOFT, SHIPS } from "@/types";
-import { cn } from "@/lib/utils";
-import { useLocalStorage } from "@/lib/use-local-storage";
+} from "@/types"
+import { MISSION_COLORS, MISSION_COLORS_SOFT, SHIPS } from "@/types"
 
 interface PlanScreenProps {
-  missions: ParsedMission[];
-  onBack: (missions: ParsedMission[]) => void;
-  onNext: (result: OptimizeResult, missions: ParsedMission[]) => void;
+  missions: ParsedMission[]
+  onBack: (missions: ParsedMission[]) => void
+  onNext: (result: OptimizeResult, missions: ParsedMission[]) => void
 }
 
 export function PlanScreen({ missions, onBack, onNext }: PlanScreenProps) {
-  const [ship, setShip] = useLocalStorage<ShipId>("sch:plan:ship", SHIPS[0].id);
-  const [goal, setGoal] = useLocalStorage<OptimizeGoal>("sch:plan:goal", "PROFIT");
-  const [maxMissions, setMaxMissions] = useLocalStorage("sch:plan:maxMissions", Math.min(missions.length, 10));
-  const [maxStops, setMaxStops] = useLocalStorage("sch:plan:maxStops", 5);
-  const [currentLocation, setCurrentLocation] = useLocalStorage("sch:plan:currentLocation", "");
-  const [allowInterstellar, setAllowInterstellar] = useLocalStorage("sch:plan:allowInterstellar", true);
-  const [locks, setLocks] = useLocalStorage<LockState[]>("sch:plan:locks", missions.map(() => "default"));
-  const [result, setResult] = useLocalStorage<OptimizeResult | null>("sch:plan:result", null);
+  const [ship, setShip] = useLocalStorage<ShipId>("sch:plan:ship", SHIPS[0].id)
+  const [goal, setGoal] = useLocalStorage<OptimizeGoal>(
+    "sch:plan:goal",
+    "PROFIT"
+  )
+  const [maxMissions, setMaxMissions] = useLocalStorage(
+    "sch:plan:maxMissions",
+    Math.min(missions.length, 10)
+  )
+  const [maxStops, setMaxStops] = useLocalStorage("sch:plan:maxStops", 5)
+  const [currentLocation, setCurrentLocation] = useLocalStorage(
+    "sch:plan:currentLocation",
+    ""
+  )
+  const [allowInterstellar, setAllowInterstellar] = useLocalStorage(
+    "sch:plan:allowInterstellar",
+    true
+  )
+  const [locks, setLocks] = useLocalStorage<LockState[]>(
+    "sch:plan:locks",
+    missions.map(() => "default")
+  )
+  const [result, setResult] = useLocalStorage<OptimizeResult | null>(
+    "sch:plan:result",
+    null
+  )
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Clear result whenever any setting changes (skip initial mount)
-  const isMounted = useRef(false);
+  const isMounted = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately re-runs only when settings change; setters are stable
   useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return; }
-    setResult(null);
-    setError(null);
-  }, [ship, goal, maxMissions, maxStops, currentLocation, allowInterstellar, locks]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isMounted.current) {
+      isMounted.current = true
+      return
+    }
+    setResult(null)
+    setError(null)
+  }, [
+    ship,
+    goal,
+    maxMissions,
+    maxStops,
+    currentLocation,
+    allowInterstellar,
+    locks,
+  ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset locks when mission count changes (new import session)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately keyed on mission count only, not on locks/setters
   useEffect(() => {
     if (locks.length !== missions.length) {
-      setLocks(missions.map(() => "default"));
-      setResult(null);
+      setLocks(missions.map(() => "default"))
+      setResult(null)
     }
-  }, [missions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [missions.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-function cycleLock(i: number) {
+  function cycleLock(i: number) {
     setLocks((prev) =>
       prev.map((l, idx) =>
-        idx !== i ? l : l === "default" ? "force_in" : l === "force_in" ? "force_out" : "default",
-      ),
-    );
+        idx !== i
+          ? l
+          : l === "default"
+            ? "force_in"
+            : l === "force_in"
+              ? "force_out"
+              : "default"
+      )
+    )
   }
 
   async function handleOptimize() {
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    setLoading(true)
+    setError(null)
+    setResult(null)
     try {
       const forceInclude = locks
         .map((l, i) => (l === "force_in" ? i : -1))
-        .filter((i) => i >= 0);
+        .filter((i) => i >= 0)
       const forceExclude = locks
         .map((l, i) => (l === "force_out" ? i : -1))
-        .filter((i) => i >= 0);
+        .filter((i) => i >= 0)
 
       const res = await fetch("/api/v1/optimize", {
         method: "POST",
@@ -82,22 +119,22 @@ function cycleLock(i: number) {
           forceExclude,
           allowInterstellar,
         }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: OptimizeResult = await res.json();
-      setResult(data);
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data: OptimizeResult = await res.json()
+      setResult(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      setError(e instanceof Error ? e.message : "Unknown error")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
-  const shipConfig = SHIPS.find((s) => s.id === ship)!;
+  const shipConfig = SHIPS.find((s) => s.id === ship) ?? SHIPS[0]
   const totalScu = missions
     .filter((_, i) => locks[i] !== "force_out")
     .flatMap((m) => m.deliveries)
-    .reduce((s, d) => s + (d.scu ?? 0), 0);
+    .reduce((s, d) => s + (d.scu ?? 0), 0)
 
   return (
     <div className="flex h-full flex-col">
@@ -107,14 +144,17 @@ function cycleLock(i: number) {
           <div className="font-mono text-[10.5px] tracking-[0.14em] uppercase text-text-dim">
             Phase 03
           </div>
-          <h1 className="mt-1 text-2xl font-medium tracking-tight">Plan your haul</h1>
+          <h1 className="mt-1 text-2xl font-medium tracking-tight">
+            Plan your haul
+          </h1>
           <p className="mt-2 max-w-[560px] text-sm text-muted-foreground">
-            Set your ship, starting location, and goal — then let the optimizer pick the
-            best route.
+            Set your ship, starting location, and goal — then let the optimizer
+            pick the best route.
           </p>
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             className="inline-flex items-center gap-2 rounded border border-transparent bg-transparent px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => onBack(missions)}
           >
@@ -122,6 +162,7 @@ function cycleLock(i: number) {
           </button>
           {result ? (
             <button
+              type="button"
               className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               onClick={() => onNext(result, missions)}
             >
@@ -129,13 +170,14 @@ function cycleLock(i: number) {
             </button>
           ) : (
             <button
+              type="button"
               disabled={loading || missions.length === 0 || !currentLocation}
               onClick={handleOptimize}
               className={cn(
                 "inline-flex items-center gap-2 rounded px-4 py-2 text-[13px] font-semibold transition-colors",
                 loading || missions.length === 0 || !currentLocation
                   ? "cursor-not-allowed bg-surface text-muted-foreground"
-                  : "bg-primary text-primary-foreground hover:opacity-90",
+                  : "bg-primary text-primary-foreground hover:opacity-90"
               )}
             >
               {loading ? "Optimizing…" : "Optimize route"}
@@ -159,7 +201,10 @@ function cycleLock(i: number) {
 
           {/* Current location */}
           <Section label="Current location">
-            <LocationSearch value={currentLocation} onChange={setCurrentLocation} />
+            <LocationSearch
+              value={currentLocation}
+              onChange={setCurrentLocation}
+            />
           </Section>
 
           {/* Goal */}
@@ -167,13 +212,14 @@ function cycleLock(i: number) {
             <div className="grid grid-cols-2 gap-2">
               {(["PROFIT", "XP"] as OptimizeGoal[]).map((g) => (
                 <button
+                  type="button"
                   key={g}
                   onClick={() => setGoal(g)}
                   className={cn(
                     "rounded-[8px] border px-3.5 py-2 font-mono text-[12px] uppercase tracking-[0.08em] transition-colors",
                     goal === g
                       ? "border-primary bg-accent text-foreground"
-                      : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
+                      : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
                   )}
                 >
                   {g === "PROFIT" ? "Profit (aUEC)" : "XP / Rank"}
@@ -187,13 +233,14 @@ function cycleLock(i: number) {
             <div className="grid grid-cols-2 gap-2">
               {([true, false] as const).map((val) => (
                 <button
+                  type="button"
                   key={String(val)}
                   onClick={() => setAllowInterstellar(val)}
                   className={cn(
                     "rounded-[8px] border px-3.5 py-2 font-mono text-[12px] uppercase tracking-[0.08em] transition-colors",
                     allowInterstellar === val
                       ? "border-primary bg-accent text-foreground"
-                      : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
+                      : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
                   )}
                 >
                   {val ? "Allow" : "Block"}
@@ -243,7 +290,9 @@ function cycleLock(i: number) {
               <span
                 className={cn(
                   "font-mono text-[12px] font-medium",
-                  totalScu > shipConfig.capacity ? "text-danger" : "text-muted-foreground",
+                  totalScu > shipConfig.capacity
+                    ? "text-danger"
+                    : "text-muted-foreground"
                 )}
               >
                 {totalScu} / {shipConfig.capacity} SCU
@@ -253,9 +302,11 @@ function cycleLock(i: number) {
               <div
                 className={cn(
                   "h-full rounded-full transition-all",
-                  totalScu > shipConfig.capacity ? "bg-danger" : "bg-primary",
+                  totalScu > shipConfig.capacity ? "bg-danger" : "bg-primary"
                 )}
-                style={{ width: `${Math.min((totalScu / shipConfig.capacity) * 100, 100)}%` }}
+                style={{
+                  width: `${Math.min((totalScu / shipConfig.capacity) * 100, 100)}%`,
+                }}
               />
             </div>
           </div>
@@ -263,11 +314,14 @@ function cycleLock(i: number) {
           {/* Missions */}
           <Section label={`Missions · ${missions.length}`}>
             {missions.length === 0 ? (
-              <p className="text-[12px] text-text-dim">No missions. Go back and import some.</p>
+              <p className="text-[12px] text-text-dim">
+                No missions. Go back and import some.
+              </p>
             ) : (
               <div className="flex flex-col gap-2">
                 {missions.map((m, i) => (
                   <MissionLockRow
+                    // biome-ignore lint/suspicious/noArrayIndexKey: missions identified positionally throughout the app
                     key={i}
                     mission={m}
                     index={i}
@@ -299,18 +353,28 @@ function cycleLock(i: number) {
             </div>
           )}
           {result && !loading && (
-            <OptimizeResultPanel result={result} missions={missions} currentLocation={currentLocation} />
+            <OptimizeResultPanel
+              result={result}
+              missions={missions}
+              currentLocation={currentLocation}
+            />
           )}
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ── Ship select ────────────────────────────────────────────────────────────
 
-function ShipSelect({ value, onChange }: { value: ShipId; onChange: (id: ShipId) => void }) {
-  const manufacturers = Array.from(new Set(SHIPS.map((s) => s.manufacturer)));
+function ShipSelect({
+  value,
+  onChange,
+}: {
+  value: ShipId
+  onChange: (id: ShipId) => void
+}) {
+  const manufacturers = Array.from(new Set(SHIPS.map((s) => s.manufacturer)))
   return (
     <select
       value={value}
@@ -327,56 +391,71 @@ function ShipSelect({ value, onChange }: { value: ShipId; onChange: (id: ShipId)
         </optgroup>
       ))}
     </select>
-  );
+  )
 }
 
 // ── Location search ────────────────────────────────────────────────────────
 
-function LocationSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<LocationDto[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+function LocationSearch({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [query, setQuery] = useState(value)
+  const [results, setResults] = useState<LocationDto[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
 
   const search = useCallback((q: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    if (q.length < 2) { setResults([]); setOpen(false); setLoading(false); return; }
-    setLoading(true);
+    if (timer.current) clearTimeout(timer.current)
+    if (q.length < 2) {
+      setResults([])
+      setOpen(false)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/locations/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(
+          `/api/v1/locations/search?q=${encodeURIComponent(q)}`
+        )
         if (res.ok) {
-          const data: LocationDto[] = await res.json();
-          setResults(data);
-          setOpen(true);
+          const data: LocationDto[] = await res.json()
+          setResults(data)
+          setOpen(true)
         }
-      } catch { /* ignore */ } finally {
-        setLoading(false);
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false)
       }
-    }, 500);
-  }, []);
+    }, 500)
+  }, [])
 
   function handleInput(v: string) {
-    setQuery(v);
-    onChange(v);
-    search(v);
+    setQuery(v)
+    onChange(v)
+    search(v)
   }
 
   function pick(loc: LocationDto) {
-    setQuery(loc.name);
-    onChange(loc.name);
-    setOpen(false);
-    setResults([]);
+    setQuery(loc.name)
+    onChange(loc.name)
+    setOpen(false)
+    setResults([])
   }
 
   return (
@@ -397,6 +476,7 @@ function LocationSearch({ value, onChange }: { value: string; onChange: (v: stri
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-[8px] border border-border bg-surface-2 shadow-lg">
           {results.slice(0, 10).map((loc) => (
             <button
+              type="button"
               key={loc.name}
               className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-surface"
               onMouseDown={() => pick(loc)}
@@ -412,7 +492,7 @@ function LocationSearch({ value, onChange }: { value: string; onChange: (v: stri
         </div>
       )}
     </div>
-  );
+  )
 }
 
 // ── Mission lock row ────────────────────────────────────────────────────────
@@ -423,46 +503,58 @@ function MissionLockRow({
   lock,
   onCycle,
 }: {
-  mission: ParsedMission;
-  index: number;
-  lock: LockState;
-  onCycle: () => void;
+  mission: ParsedMission
+  index: number
+  lock: LockState
+  onCycle: () => void
 }) {
-  const color = MISSION_COLORS[index % MISSION_COLORS.length];
-  const soft = MISSION_COLORS_SOFT[index % MISSION_COLORS_SOFT.length];
+  const color = MISSION_COLORS[index % MISSION_COLORS.length]
+  const soft = MISSION_COLORS_SOFT[index % MISSION_COLORS_SOFT.length]
 
   return (
     <div
       className="relative flex items-center gap-2.5 overflow-hidden rounded-[8px] border border-border bg-surface px-3 py-2"
       style={lock === "force_out" ? { opacity: 0.4 } : undefined}
     >
-      <div className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: color }} />
+      <div
+        className="absolute bottom-0 left-0 top-0 w-[3px]"
+        style={{ background: color }}
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[12px] font-medium">{mission.title}</div>
         <div className="mt-0.5 font-mono text-[10px] text-text-dim">
-          {mission.rewardUec != null ? `${mission.rewardUec.toLocaleString()} aUEC` : "—"}
+          {mission.rewardUec != null
+            ? `${mission.rewardUec.toLocaleString()} aUEC`
+            : "—"}
           {mission.xp != null ? ` · ${mission.xp} XP` : ""}
           {(() => {
-            const scu = mission.deliveries.reduce((s, d) => s + (d.scu ?? 0), 0);
-            return scu > 0 ? ` · ${scu} SCU` : "";
+            const scu = mission.deliveries.reduce((s, d) => s + (d.scu ?? 0), 0)
+            return scu > 0 ? ` · ${scu} SCU` : ""
           })()}
         </div>
       </div>
       <button
+        type="button"
         onClick={onCycle}
-        title={lock === "default" ? "Click to force-include" : lock === "force_in" ? "Force-included — click to force-exclude" : "Force-excluded — click to reset"}
+        title={
+          lock === "default"
+            ? "Click to force-include"
+            : lock === "force_in"
+              ? "Force-included — click to force-exclude"
+              : "Force-excluded — click to reset"
+        }
         className={cn(
           "shrink-0 rounded px-2 py-1 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors",
           lock === "default" && "text-text-dim hover:text-muted-foreground",
           lock === "force_in" && "text-success",
-          lock === "force_out" && "text-danger",
+          lock === "force_out" && "text-danger"
         )}
         style={lock === "force_in" ? { background: soft } : undefined}
       >
         {lock === "default" ? "FREE" : lock === "force_in" ? "↑ IN" : "↓ OUT"}
       </button>
     </div>
-  );
+  )
 }
 
 // ── Optimize result panel ───────────────────────────────────────────────────
@@ -472,43 +564,56 @@ function OptimizeResultPanel({
   missions,
   currentLocation,
 }: {
-  result: OptimizeResult;
-  missions: ParsedMission[];
-  currentLocation: string;
+  result: OptimizeResult
+  missions: ParsedMission[]
+  currentLocation: string
 }) {
   return (
     <div className="flex flex-col gap-5">
       {/* Summary bar */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Stops" value={String(result.stopCount)} />
-        <StatCard label="Reward" value={`${result.totalRewardUec.toLocaleString()} aUEC`} />
+        <StatCard
+          label="Reward"
+          value={`${result.totalRewardUec.toLocaleString()} aUEC`}
+        />
         <StatCard label="XP" value={String(result.totalXp || "—")} />
       </div>
 
       {/* Selected missions */}
       <div>
-        <SectionLabel>Selected missions · {result.selectedMissionIndices.length}</SectionLabel>
+        <SectionLabel>
+          Selected missions · {result.selectedMissionIndices.length}
+        </SectionLabel>
         <div className="mt-2 flex flex-col gap-1.5">
           {result.selectedMissionIndices.map((mIdx) => {
-            const m = missions[mIdx];
-            if (!m) return null;
-            const color = MISSION_COLORS[mIdx % MISSION_COLORS.length];
+            const m = missions[mIdx]
+            if (!m) return null
+            const color = MISSION_COLORS[mIdx % MISSION_COLORS.length]
             return (
               <div
                 key={mIdx}
                 className="relative flex items-center gap-2.5 overflow-hidden rounded-[8px] border border-border bg-surface px-3 py-2"
               >
-                <div className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: color }} />
-                <div className="min-w-0 flex-1 truncate text-[13px]">{m.title}</div>
+                <div
+                  className="absolute bottom-0 left-0 top-0 w-[3px]"
+                  style={{ background: color }}
+                />
+                <div className="min-w-0 flex-1 truncate text-[13px]">
+                  {m.title}
+                </div>
                 <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
                   {(() => {
-                    const scu = m.deliveries.reduce((s, d) => s + (d.scu ?? 0), 0);
-                    return scu > 0 ? <span>{scu} SCU</span> : null;
+                    const scu = m.deliveries.reduce(
+                      (s, d) => s + (d.scu ?? 0),
+                      0
+                    )
+                    return scu > 0 ? <span>{scu} SCU</span> : null
                   })()}
                   <span>{m.rewardUec?.toLocaleString()} aUEC</span>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       </div>
@@ -526,7 +631,7 @@ function OptimizeResultPanel({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ── Route timeline ──────────────────────────────────────────────────────────
@@ -537,10 +642,10 @@ function RouteTimeline({
   missions,
   missionIndices,
 }: {
-  stops: Stop[];
-  currentLocation: string;
-  missions: ParsedMission[];
-  missionIndices: number[];
+  stops: Stop[]
+  currentLocation: string
+  missions: ParsedMission[]
+  missionIndices: number[]
 }) {
   return (
     <div className="flex flex-col">
@@ -555,24 +660,34 @@ function RouteTimeline({
             <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-text-dim">
               Starting position
             </div>
-            <div className="text-[13px] font-medium">{currentLocation || "—"}</div>
+            <div className="text-[13px] font-medium">
+              {currentLocation || "—"}
+            </div>
           </div>
         </div>
       </div>
 
       {stops.map((stop, i) => (
-        <Fragment key={i}>
+        <Fragment
+          // biome-ignore lint/suspicious/noArrayIndexKey: route stops are positionally ordered
+          key={i}
+        >
           <FlightConnector label={stop.distanceLabel} />
-          <StopCard stop={stop} index={i} missions={missions} missionIndices={missionIndices} />
+          <StopCard
+            stop={stop}
+            index={i}
+            missions={missions}
+            missionIndices={missionIndices}
+          />
         </Fragment>
       ))}
     </div>
-  );
+  )
 }
 
 function FlightConnector({ label }: { label?: string }) {
-  const isSameArea = !label || label === "Same area";
-  const text = isSameArea ? "Short flight / drive" : `Fly  ${label}`;
+  const isSameArea = !label || label === "Same area"
+  const text = isSameArea ? "Short flight / drive" : `Fly  ${label}`
   return (
     <div className="flex items-center gap-3 py-1.5 pl-4">
       <div className="flex flex-col items-center gap-[3px]">
@@ -586,13 +701,13 @@ function FlightConnector({ label }: { label?: string }) {
       <span
         className={cn(
           "font-mono text-[11px]",
-          isSameArea ? "text-text-dim" : "text-muted-foreground",
+          isSameArea ? "text-text-dim" : "text-muted-foreground"
         )}
       >
         {text}
       </span>
     </div>
-  );
+  )
 }
 
 function StopCard({
@@ -601,17 +716,17 @@ function StopCard({
   missions,
   missionIndices,
 }: {
-  stop: Stop;
-  index: number;
-  missions: ParsedMission[];
-  missionIndices: number[];
+  stop: Stop
+  index: number
+  missions: ParsedMission[]
+  missionIndices: number[]
 }) {
   const typeColor =
     stop.stopType === "PICKUP"
       ? "text-primary border-primary/40"
       : stop.stopType === "DROPOFF"
         ? "text-success border-[oklch(0.50_0.10_150)]"
-        : "text-accent-foreground border-border-strong";
+        : "text-accent-foreground border-border-strong"
 
   return (
     <div className="rounded-[8px] border border-border bg-surface px-4 py-3">
@@ -625,17 +740,21 @@ function StopCard({
           </span>
           <span className="text-[14px] font-medium">{stop.location}</span>
           {stop.parentBody && (
-            <span className="font-mono text-[10px] text-text-dim">{stop.parentBody}</span>
+            <span className="font-mono text-[10px] text-text-dim">
+              {stop.parentBody}
+            </span>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {stop.distanceLabel && stop.distanceLabel !== "Same area" && (
-            <span className="font-mono text-[10px] text-text-dim">{stop.distanceLabel}</span>
+            <span className="font-mono text-[10px] text-text-dim">
+              {stop.distanceLabel}
+            </span>
           )}
           <span
             className={cn(
               "rounded-[3px] border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.06em]",
-              typeColor,
+              typeColor
             )}
           >
             {stop.stopType.replace("_", "+")}
@@ -646,15 +765,26 @@ function StopCard({
       {(stop.pickups.length > 0 || stop.dropoffs.length > 0) && (
         <div className="mt-2.5 flex flex-col gap-1.5 border-t border-border pt-2.5">
           {stop.pickups.length > 0 && (
-            <ItemList label="PICK UP" items={stop.pickups} missions={missions} bullet="pickup" />
+            <ItemList
+              label="PICK UP"
+              items={stop.pickups}
+              missions={missions}
+              bullet="pickup"
+            />
           )}
           {stop.dropoffs.length > 0 && (
-            <ItemList label="DELIVER" items={stop.dropoffs} missions={missions} bullet="dropoff" missionIndices={missionIndices} />
+            <ItemList
+              label="DELIVER"
+              items={stop.dropoffs}
+              missions={missions}
+              bullet="dropoff"
+              missionIndices={missionIndices}
+            />
           )}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function ItemList({
@@ -662,11 +792,11 @@ function ItemList({
   items,
   missions,
 }: {
-  label: string;
-  items: StopItem[];
-  missions: ParsedMission[];
-  bullet: "pickup" | "dropoff";
-  missionIndices?: number[];
+  label: string
+  items: StopItem[]
+  missions: ParsedMission[]
+  bullet: "pickup" | "dropoff"
+  missionIndices?: number[]
 }) {
   return (
     <div>
@@ -674,30 +804,42 @@ function ItemList({
         {label}
       </div>
       {items.map((item, i) => {
-        const mIdx = item.missionIndex;
-        const color = MISSION_COLORS[mIdx % MISSION_COLORS.length];
+        const mIdx = item.missionIndex
+        const color = MISSION_COLORS[mIdx % MISSION_COLORS.length]
         return (
-          <div key={i} className="flex items-center gap-2 py-0.5">
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: per-stop cargo list, positionally stable
+            key={i}
+            className="flex items-center gap-2 py-0.5"
+          >
             <div
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ background: color }}
             />
-            <span className="text-[12px]">{item.cargoType ?? missions[mIdx]?.cargoType ?? "cargo"}</span>
+            <span className="text-[12px]">
+              {item.cargoType ?? missions[mIdx]?.cargoType ?? "cargo"}
+            </span>
             {item.scu != null && (
               <span className="ml-auto font-mono text-[11px] text-muted-foreground">
                 {item.scu} SCU
               </span>
             )}
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 // ── Small shared components ────────────────────────────────────────────────
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
   return (
     <div>
       <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em] text-text-dim">
@@ -705,7 +847,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       </div>
       {children}
     </div>
-  );
+  )
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -713,14 +855,16 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-text-dim">
       {children}
     </div>
-  );
+  )
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-[8px] border border-border bg-surface px-3.5 py-2.5">
-      <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-text-dim">{label}</span>
+      <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-text-dim">
+        {label}
+      </span>
       <span className="font-mono text-[16px] font-medium">{value}</span>
     </div>
-  );
+  )
 }

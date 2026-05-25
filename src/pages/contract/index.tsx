@@ -34,12 +34,14 @@ export function ContractScreen({
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             className="inline-flex items-center gap-2 rounded border border-transparent bg-transparent px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             onClick={onBack}
           >
             <span className="font-mono">←</span> Back
           </button>
           <button
+            type="button"
             className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             onClick={onNext}
           >
@@ -145,14 +147,21 @@ function ContractCard({
 
       <div className="mt-3 border-t border-border pt-3 font-mono text-[12px] flex flex-col gap-2">
         {mission.deliveries.map((delivery, di) => (
-          <div key={di}>
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: static per-contract delivery list, fixed render order
+            key={di}
+          >
             <div className="text-foreground">
               Deliver 0/{delivery.scu ?? totalScu} SCU of{" "}
               {delivery.cargoType ?? mission.cargoType ?? "cargo"} to{" "}
               {delivery.location}
             </div>
             {lines.map((line, pi) => (
-              <div key={pi} className="mt-0.5 pl-4 text-muted-foreground">
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static description lines, fixed render order
+                key={pi}
+                className="mt-0.5 pl-4 text-muted-foreground"
+              >
                 — {line}
               </div>
             ))}

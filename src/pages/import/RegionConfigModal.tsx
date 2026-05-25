@@ -1,23 +1,46 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { BoundingBox, RegionConfig } from "@/types";
-import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
+import type { BoundingBox, RegionConfig } from "@/types"
 
 interface Props {
-  referenceFiles: File[];
-  initialConfig: RegionConfig | null;
-  onSave: (config: RegionConfig) => void;
-  onClose: () => void;
+  referenceFiles: File[]
+  initialConfig: RegionConfig | null
+  onSave: (config: RegionConfig) => void
+  onClose: () => void
 }
 
-type RegionKey = keyof RegionConfig;
+type RegionKey = keyof RegionConfig
 
-const REGIONS: { key: RegionKey; label: string; color: string; hint: string }[] = [
-  { key: "title",      label: "Title",      color: "#6366f1", hint: "Drag around the contract title" },
-  { key: "reward",     label: "Reward",     color: "#22c55e", hint: "Drag around the UEC reward amount" },
-  { key: "objectives", label: "Objectives", color: "#f59e0b", hint: "Drag around the Primary Objectives section" },
-];
+const REGIONS: {
+  key: RegionKey
+  label: string
+  color: string
+  hint: string
+}[] = [
+  {
+    key: "title",
+    label: "Title",
+    color: "#6366f1",
+    hint: "Drag around the contract title",
+  },
+  {
+    key: "reward",
+    label: "Reward",
+    color: "#22c55e",
+    hint: "Drag around the UEC reward amount",
+  },
+  {
+    key: "objectives",
+    label: "Objectives",
+    color: "#f59e0b",
+    hint: "Drag around the Primary Objectives section",
+  },
+]
 
-interface Point { x: number; y: number }
+interface Point {
+  x: number
+  y: number
+}
 
 function normalizeBox(a: Point, b: Point): BoundingBox {
   return {
@@ -25,74 +48,90 @@ function normalizeBox(a: Point, b: Point): BoundingBox {
     y: Math.min(a.y, b.y),
     w: Math.abs(b.x - a.x),
     h: Math.abs(b.y - a.y),
-  };
+  }
 }
 
-export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClose }: Props) {
-  const [fileIndex, setFileIndex] = useState(0);
-  const activeFile = referenceFiles[Math.min(fileIndex, referenceFiles.length - 1)];
+export function RegionConfigModal({
+  referenceFiles,
+  initialConfig,
+  onSave,
+  onClose,
+}: Props) {
+  const [fileIndex, setFileIndex] = useState(0)
+  const activeFile =
+    referenceFiles[Math.min(fileIndex, referenceFiles.length - 1)]
 
-  const imageUrl = useMemo(() => URL.createObjectURL(activeFile), [activeFile]);
-  useEffect(() => () => URL.revokeObjectURL(imageUrl), [imageUrl]);
+  const imageUrl = useMemo(() => URL.createObjectURL(activeFile), [activeFile])
+  useEffect(() => () => URL.revokeObjectURL(imageUrl), [imageUrl])
 
-  const [activeKey, setActiveKey] = useState<RegionKey>("title");
-  const [boxes, setBoxes] = useState<Partial<RegionConfig>>(initialConfig ?? {});
-  const [drawStart, setDrawStart] = useState<Point | null>(null);
-  const [drawCurrent, setDrawCurrent] = useState<Point | null>(null);
+  const [activeKey, setActiveKey] = useState<RegionKey>("title")
+  const [boxes, setBoxes] = useState<Partial<RegionConfig>>(initialConfig ?? {})
+  const [drawStart, setDrawStart] = useState<Point | null>(null)
+  const [drawCurrent, setDrawCurrent] = useState<Point | null>(null)
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const getRelativePoint = (e: React.MouseEvent): Point => {
-    const rect = containerRef.current!.getBoundingClientRect();
+    const el = containerRef.current
+    if (!el) return { x: 0, y: 0 }
+    const rect = el.getBoundingClientRect()
     return {
       x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
-    };
-  };
+    }
+  }
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const pt = getRelativePoint(e);
-    setDrawStart(pt);
-    setDrawCurrent(pt);
-  };
+    e.preventDefault()
+    const pt = getRelativePoint(e)
+    setDrawStart(pt)
+    setDrawCurrent(pt)
+  }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!drawStart) return;
-    setDrawCurrent(getRelativePoint(e));
-  };
+    if (!drawStart) return
+    setDrawCurrent(getRelativePoint(e))
+  }
 
   const commitDraw = (e: React.MouseEvent) => {
-    if (!drawStart) return;
-    const end = getRelativePoint(e);
-    const box = normalizeBox(drawStart, end);
+    if (!drawStart) return
+    const end = getRelativePoint(e)
+    const box = normalizeBox(drawStart, end)
     if (box.w > 0.01 && box.h > 0.01) {
-      const updated = { ...boxes, [activeKey]: box };
-      setBoxes(updated);
-      const nextRegion = REGIONS.find((r) => r.key !== activeKey && !updated[r.key]);
-      if (nextRegion) setActiveKey(nextRegion.key);
+      const updated = { ...boxes, [activeKey]: box }
+      setBoxes(updated)
+      const nextRegion = REGIONS.find(
+        (r) => r.key !== activeKey && !updated[r.key]
+      )
+      if (nextRegion) setActiveKey(nextRegion.key)
     }
-    setDrawStart(null);
-    setDrawCurrent(null);
-  };
+    setDrawStart(null)
+    setDrawCurrent(null)
+  }
 
-  const allSet = boxes.title != null && boxes.reward != null && boxes.objectives != null;
-  const activeRegion = REGIONS.find((r) => r.key === activeKey)!;
-  const liveBox = drawStart && drawCurrent ? normalizeBox(drawStart, drawCurrent) : null;
+  const allSet =
+    boxes.title != null && boxes.reward != null && boxes.objectives != null
+  const activeRegion = REGIONS.find((r) => r.key === activeKey) ?? REGIONS[0]
+  const liveBox =
+    drawStart && drawCurrent ? normalizeBox(drawStart, drawCurrent) : null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex w-[92vw] max-w-5xl flex-col rounded-[12px] border border-border bg-surface shadow-2xl">
-
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <div className="text-[15px] font-medium">Configure OCR Regions</div>
             <div className="mt-0.5 text-[12px] text-muted-foreground">
-              Drag on the screenshot to define each region. Saved per-browser in localStorage.
+              Drag on the screenshot to define each region. Saved per-browser in
+              localStorage.
             </div>
           </div>
-          <button className="font-mono text-[13px] text-text-dim hover:text-foreground" onClick={onClose}>
+          <button
+            type="button"
+            className="font-mono text-[13px] text-text-dim hover:text-foreground"
+            onClick={onClose}
+          >
             ✕
           </button>
         </div>
@@ -104,6 +143,7 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
               Reference image
             </span>
             <button
+              type="button"
               disabled={fileIndex === 0}
               onClick={() => setFileIndex((i) => i - 1)}
               className="rounded border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:border-border-strong hover:text-foreground disabled:opacity-30"
@@ -117,6 +157,7 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
               {fileIndex + 1} / {referenceFiles.length}
             </span>
             <button
+              type="button"
               disabled={fileIndex === referenceFiles.length - 1}
               onClick={() => setFileIndex((i) => i + 1)}
               className="rounded border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:border-border-strong hover:text-foreground disabled:opacity-30"
@@ -130,19 +171,22 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
         <div className="flex gap-2 border-b border-border px-5 py-3">
           {REGIONS.map((r) => (
             <button
+              type="button"
               key={r.key}
               onClick={() => setActiveKey(r.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-[4px] border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors",
                 activeKey === r.key
                   ? "border-transparent text-white"
-                  : "border-border text-muted-foreground hover:border-border-strong",
+                  : "border-border text-muted-foreground hover:border-border-strong"
               )}
               style={activeKey === r.key ? { background: r.color } : {}}
             >
               <span
                 className="h-2 w-2 rounded-full"
-                style={{ background: boxes[r.key] ? r.color : "var(--border-strong)" }}
+                style={{
+                  background: boxes[r.key] ? r.color : "var(--border-strong)",
+                }}
               />
               {r.label}
               {boxes[r.key] && <span className="opacity-70">✓</span>}
@@ -152,6 +196,7 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
 
         {/* Image canvas */}
         <div className="overflow-auto p-4" style={{ maxHeight: "58vh" }}>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag canvas for drawing OCR regions; no keyboard equivalent */}
           <div
             ref={containerRef}
             className="relative inline-block w-full cursor-crosshair select-none"
@@ -169,8 +214,8 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
             />
 
             {REGIONS.map((r) => {
-              const box = boxes[r.key];
-              if (!box) return null;
+              const box = boxes[r.key]
+              if (!box) return null
               return (
                 <div
                   key={r.key}
@@ -192,7 +237,7 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
                     {r.label}
                   </span>
                 </div>
-              );
+              )
             })}
 
             {liveBox && (
@@ -221,8 +266,15 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
             {activeRegion.hint}
             {boxes[activeKey] && (
               <button
+                type="button"
                 className="ml-2 font-mono text-[10px] text-text-dim underline hover:text-foreground"
-                onClick={() => setBoxes((b) => { const c = { ...b }; delete c[activeKey]; return c; })}
+                onClick={() =>
+                  setBoxes((b) => {
+                    const c = { ...b }
+                    delete c[activeKey]
+                    return c
+                  })
+                }
               >
                 redraw
               </button>
@@ -230,12 +282,14 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
           </div>
           <div className="flex gap-2">
             <button
+              type="button"
               className="rounded border border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground hover:border-border-strong hover:text-foreground"
               onClick={onClose}
             >
               Cancel
             </button>
             <button
+              type="button"
               disabled={!allSet}
               className="rounded px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background: allSet ? "#6366f1" : undefined }}
@@ -247,5 +301,5 @@ export function RegionConfigModal({ referenceFiles, initialConfig, onSave, onClo
         </div>
       </div>
     </div>
-  );
+  )
 }
