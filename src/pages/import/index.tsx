@@ -34,8 +34,8 @@ export function ImportScreen({ onNext, initialMissions = [] }: ImportScreenProps
   // Restore queue from previously reviewed missions (no file objects — they're gone)
   const initialItems = useMemo<UploadQueueItem[]>(
     () =>
-      initialMissions.map((m) => ({
-        id: `restored-${Math.random()}`,
+      initialMissions.map((m, i) => ({
+        id: `restored-${i}`,
         filename: m.title,
         status: "ok" as const,
         result: m,
