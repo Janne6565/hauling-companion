@@ -45,49 +45,49 @@
 
 /* App is always dark — one set of tokens, no light/dark split */
 :root {
-  --background:          oklch(0.16 0.006 250);
-  --bg-2:                oklch(0.20 0.008 250);
-  --surface:             oklch(0.22 0.009 250);
-  --surface-2:           oklch(0.26 0.01  250);
-  --foreground:          oklch(0.97 0.005 250);
-  --card:                oklch(0.22 0.009 250);
-  --card-foreground:     oklch(0.97 0.005 250);
-  --popover:             oklch(0.22 0.009 250);
-  --popover-foreground:  oklch(0.97 0.005 250);
-  --border:              oklch(0.32 0.012 250);
-  --border-strong:       oklch(0.42 0.014 250);
-  --input:               oklch(0.20 0.008 250);
-  --primary:             oklch(0.80 0.14  200);
-  --primary-foreground:  oklch(0.18 0.02  200);
-  --secondary:           oklch(0.20 0.008 250);
-  --secondary-foreground:oklch(0.97 0.005 250);
-  --muted:               oklch(0.26 0.01  250);
-  --muted-foreground:    oklch(0.68 0.012 250);
-  --accent:              oklch(0.34 0.08  200);
-  --accent-foreground:   oklch(0.97 0.005 250);
-  --destructive:         oklch(0.70 0.18   25);
-  --ring:                oklch(0.80 0.14  200);
-  --text-dim:            oklch(0.48 0.012 250);
-  --success:             oklch(0.78 0.16  150);
-  --danger:              oklch(0.70 0.18   25);
+  --background: oklch(0.16 0.006 250);
+  --bg-2: oklch(0.2 0.008 250);
+  --surface: oklch(0.22 0.009 250);
+  --surface-2: oklch(0.26 0.01 250);
+  --foreground: oklch(0.97 0.005 250);
+  --card: oklch(0.22 0.009 250);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.22 0.009 250);
+  --popover-foreground: oklch(0.97 0.005 250);
+  --border: oklch(0.32 0.012 250);
+  --border-strong: oklch(0.42 0.014 250);
+  --input: oklch(0.2 0.008 250);
+  --primary: oklch(0.8 0.14 200);
+  --primary-foreground: oklch(0.18 0.02 200);
+  --secondary: oklch(0.2 0.008 250);
+  --secondary-foreground: oklch(0.97 0.005 250);
+  --muted: oklch(0.26 0.01 250);
+  --muted-foreground: oklch(0.68 0.012 250);
+  --accent: oklch(0.34 0.08 200);
+  --accent-foreground: oklch(0.97 0.005 250);
+  --destructive: oklch(0.7 0.18 25);
+  --ring: oklch(0.8 0.14 200);
+  --text-dim: oklch(0.48 0.012 250);
+  --success: oklch(0.78 0.16 150);
+  --danger: oklch(0.7 0.18 25);
   --radius: 6px;
 
   /* 7 mission colors */
-  --m1: oklch(0.74 0.16  40);
+  --m1: oklch(0.74 0.16 40);
   --m2: oklch(0.74 0.16 145);
   --m3: oklch(0.74 0.16 235);
   --m4: oklch(0.74 0.16 305);
-  --m5: oklch(0.74 0.16   5);
-  --m6: oklch(0.80 0.14  85);
+  --m5: oklch(0.74 0.16 5);
+  --m6: oklch(0.8 0.14 85);
   --m7: oklch(0.74 0.16 195);
 
-  --m1-soft: oklch(0.30 0.08  40);
-  --m2-soft: oklch(0.30 0.08 145);
-  --m3-soft: oklch(0.30 0.08 235);
-  --m4-soft: oklch(0.30 0.08 305);
-  --m5-soft: oklch(0.30 0.08   5);
-  --m6-soft: oklch(0.32 0.07  85);
-  --m7-soft: oklch(0.30 0.08 195);
+  --m1-soft: oklch(0.3 0.08 40);
+  --m2-soft: oklch(0.3 0.08 145);
+  --m3-soft: oklch(0.3 0.08 235);
+  --m4-soft: oklch(0.3 0.08 305);
+  --m5-soft: oklch(0.3 0.08 5);
+  --m6-soft: oklch(0.32 0.07 85);
+  --m7-soft: oklch(0.3 0.08 195);
 }
 
 @layer base {
@@ -95,22 +95,29 @@
     @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
-  html, body {
+  html,
+  body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
     margin: 0;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
   }
 }
 
 /* Cargo cell animations */
 @keyframes cargo-pulse {
-  0%, 100% { opacity: 0.9; }
-  50%       { opacity: 0.2; }
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.2;
+  }
 }
 .cargo-cell-loading {
   animation: cargo-pulse 1.4s ease-in-out infinite;

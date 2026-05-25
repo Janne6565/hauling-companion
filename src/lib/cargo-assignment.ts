@@ -1,10 +1,10 @@
-import type { ShipLayout } from "@/data/cargo-grids";
-import type { Stop } from "@/types";
+import type { ShipLayout } from "@/data/cargo-grids"
+import type { Stop } from "@/types"
 
 export interface DeliveryGroup {
-  stopIdx: number;
-  location: string;
-  totalScu: number;
+  stopIdx: number
+  location: string
+  totalScu: number
 }
 
 /**
@@ -19,7 +19,7 @@ export function computeDeliveryGroups(stops: Stop[]): DeliveryGroup[] {
       location: stop.location,
       totalScu: stop.dropoffs.reduce((sum, d) => sum + (d.scu ?? 0), 0),
     }))
-    .filter((g) => g.totalScu > 0);
+    .filter((g) => g.totalScu > 0)
   // NOTE: intentionally NOT sorted by size here — stop order is preserved so
   // the assignment algorithm can try largest-first for bin-packing while still
   // placing earlier deliveries towards the front when possible.
@@ -41,84 +41,88 @@ export function computeDeliveryGroups(stops: Stop[]): DeliveryGroup[] {
  */
 export function buildCargoAssignment(
   layout: ShipLayout,
-  deliveryGroups: DeliveryGroup[],
+  deliveryGroups: DeliveryGroup[]
 ): Map<string, number> {
-  const result = new Map<string, number>();
+  const result = new Map<string, number>()
 
   // Per-section shelf state: where in the section the next rect will go.
-  interface Shelf { shelfZ: number; shelfH: number; nextX: number }
+  interface Shelf {
+    shelfZ: number
+    shelfH: number
+    nextX: number
+  }
   const shelves: Shelf[] = layout.sections.map(() => ({
     shelfZ: 0,
     shelfH: 0,
     nextX: 0,
-  }));
+  }))
 
   // Process largest groups first so they get first pick of sections.
-  const sorted = [...deliveryGroups].sort((a, b) => b.totalScu - a.totalScu);
+  const sorted = [...deliveryGroups].sort((a, b) => b.totalScu - a.totalScu)
 
   for (const group of sorted) {
-    let placed = false;
+    let placed = false
 
     for (let si = 0; si < layout.sections.length && !placed; si++) {
-      const s = layout.sections[si];
-      const sh = shelves[si];
-      const floorCells = Math.ceil(group.totalScu / s.height);
+      const s = layout.sections[si]
+      const sh = shelves[si]
+      const floorCells = Math.ceil(group.totalScu / s.height)
 
       // Ideal rect for the full section width (used as the target shape)
-      const { w: wIdeal, l: lIdeal } = bestRect(floorCells, s.width);
+      const { w: wIdeal, l: lIdeal } = bestRect(floorCells, s.width)
 
       // ── Attempt 1: current shelf has enough horizontal space ──
-      const xRem = s.width - sh.nextX;
+      const xRem = s.width - sh.nextX
       if (xRem >= wIdeal && sh.shelfZ + lIdeal <= s.length) {
-        fillRect(result, s, sh.nextX, sh.shelfZ, wIdeal, lIdeal, group.stopIdx);
-        sh.nextX += wIdeal;
-        sh.shelfH = Math.max(sh.shelfH, lIdeal);
-        placed = true;
-        break;
+        fillRect(result, s, sh.nextX, sh.shelfZ, wIdeal, lIdeal, group.stopIdx)
+        sh.nextX += wIdeal
+        sh.shelfH = Math.max(sh.shelfH, lIdeal)
+        placed = true
+        break
       }
 
       // ── Attempt 2: open a new shelf ──
       if (sh.shelfH > 0) {
-        const newZ = sh.shelfZ + sh.shelfH;
+        const newZ = sh.shelfZ + sh.shelfH
         if (newZ < s.length && lIdeal <= s.length - newZ) {
-          sh.shelfZ = newZ;
-          sh.shelfH = lIdeal;
-          sh.nextX = wIdeal;
-          fillRect(result, s, 0, newZ, wIdeal, lIdeal, group.stopIdx);
-          placed = true;
-          break;
+          sh.shelfZ = newZ
+          sh.shelfH = lIdeal
+          sh.nextX = wIdeal
+          fillRect(result, s, 0, newZ, wIdeal, lIdeal, group.stopIdx)
+          placed = true
+          break
         }
       }
     }
 
     // ── Fallback: row-by-row spill across sections ──
     if (!placed) {
-      let remaining = group.totalScu;
+      let remaining = group.totalScu
       for (let si = 0; si < layout.sections.length && remaining > 0; si++) {
-        const s = layout.sections[si];
-        const sh = shelves[si];
-        const newZ = sh.shelfZ + sh.shelfH;
-        const availRows = s.length - newZ;
-        if (availRows <= 0) continue;
+        const s = layout.sections[si]
+        const sh = shelves[si]
+        const newZ = sh.shelfZ + sh.shelfH
+        const availRows = s.length - newZ
+        if (availRows <= 0) continue
 
         const rowsToUse = Math.min(
           availRows,
-          Math.ceil(remaining / (s.width * s.height)),
-        );
+          Math.ceil(remaining / (s.width * s.height))
+        )
         for (let dz = 0; dz < rowsToUse; dz++) {
           for (let dx = 0; dx < s.width; dx++) {
-            result.set(`${s.wx + dx},${s.wz + newZ + dz}`, group.stopIdx);
+            result.set(`${s.wx + dx},${s.wz + newZ + dz}`, group.stopIdx)
           }
         }
-        sh.shelfZ = newZ + rowsToUse;
-        sh.shelfH = 0;
-        sh.nextX = 0;
-        remaining -= rowsToUse * s.width * s.height;
+        sh.shelfZ = newZ + rowsToUse
+        sh.shelfH = 0
+        sh.nextX = 0
+        remaining -= rowsToUse * s.width * s.height
       }
     }
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -130,22 +134,22 @@ export function buildCargoAssignment(
  * The closest-to-square pair is when l/w is minimised while l ≥ w.
  */
 function bestRect(floorCells: number, maxW: number): { w: number; l: number } {
-  let bw = 1;
-  let bl = floorCells;
-  let bestScore = Infinity;
+  let bw = 1
+  let bl = floorCells
+  let bestScore = Infinity
 
   for (let w = 1; w <= maxW; w++) {
-    const l = Math.ceil(floorCells / w);
-    if (l < w) break; // beyond the square point — l/w would worsen
-    const score = l / w; // 1.0 = perfect square
+    const l = Math.ceil(floorCells / w)
+    if (l < w) break // beyond the square point — l/w would worsen
+    const score = l / w // 1.0 = perfect square
     if (score < bestScore) {
-      bestScore = score;
-      bw = w;
-      bl = l;
+      bestScore = score
+      bw = w
+      bl = l
     }
   }
 
-  return { w: bw, l: bl };
+  return { w: bw, l: bl }
 }
 
 /** Fill a w × l rectangle starting at (startX, startZ) within `section`. */
@@ -156,12 +160,12 @@ function fillRect(
   startZ: number,
   w: number,
   l: number,
-  stopIdx: number,
+  stopIdx: number
 ): void {
   for (let dz = 0; dz < l; dz++) {
-    const wz = section.wz + startZ + dz;
+    const wz = section.wz + startZ + dz
     for (let dx = 0; dx < w; dx++) {
-      result.set(`${section.wx + startX + dx},${wz}`, stopIdx);
+      result.set(`${section.wx + startX + dx},${wz}`, stopIdx)
     }
   }
 }
@@ -175,13 +179,13 @@ function fillRect(
 export function getPickupDestinations(
   missionIndex: number,
   pickupScu: number,
-  stops: Stop[],
+  stops: Stop[]
 ): Array<{ stopIdx: number; location: string; scu: number }> {
   const deliveries = stops
     .map((s, i) => ({ s, i }))
-    .filter(({ s }) => s.dropoffs.some((d) => d.missionIndex === missionIndex));
+    .filter(({ s }) => s.dropoffs.some((d) => d.missionIndex === missionIndex))
 
-  if (deliveries.length === 0) return [];
+  if (deliveries.length === 0) return []
 
   const totalDeliveryScu = deliveries.reduce(
     (sum, { s }) =>
@@ -189,21 +193,27 @@ export function getPickupDestinations(
       s.dropoffs
         .filter((d) => d.missionIndex === missionIndex)
         .reduce((a, d) => a + (d.scu ?? 0), 0),
-    0,
-  );
+    0
+  )
 
   if (deliveries.length === 1 || totalDeliveryScu === 0) {
-    return [{ stopIdx: deliveries[0].i, location: deliveries[0].s.location, scu: pickupScu }];
+    return [
+      {
+        stopIdx: deliveries[0].i,
+        location: deliveries[0].s.location,
+        scu: pickupScu,
+      },
+    ]
   }
 
   return deliveries.map(({ s, i }) => {
     const delivScu = s.dropoffs
       .filter((d) => d.missionIndex === missionIndex)
-      .reduce((a, d) => a + (d.scu ?? 0), 0);
+      .reduce((a, d) => a + (d.scu ?? 0), 0)
     return {
       stopIdx: i,
       location: s.location,
       scu: Math.round((delivScu / totalDeliveryScu) * pickupScu),
-    };
-  });
+    }
+  })
 }
