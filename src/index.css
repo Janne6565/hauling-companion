@@ -36,6 +36,7 @@
   --color-text-dim: var(--text-dim);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-warning: var(--warning);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -70,6 +71,7 @@
   --text-dim: oklch(0.48 0.012 250);
   --success: oklch(0.78 0.16 150);
   --danger: oklch(0.7 0.18 25);
+  --warning: oklch(0.82 0.14 85);
   --radius: 6px;
 
   /* 7 mission colors */
