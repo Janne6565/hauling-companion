@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: hauling-companion
-          image: ghcr.io/janne6565/hauling-companion:0.1.11
+          image: ghcr.io/janne6565/hauling-companion:0.1.12
           imagePullPolicy: Always
           ports:
             - containerPort: 80
