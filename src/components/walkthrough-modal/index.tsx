@@ -274,11 +274,16 @@ const STEPS = [
 export function WalkthroughModal({ open, onClose }: WalkthroughModalProps) {
   const [step, setStep] = useState(0)
   const [imgError, setImgError] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
 
   useEffect(() => {
     if (!open) return
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") {
+        if (lightbox) { setLightbox(false); return }
+        onClose()
+      }
+      if (lightbox) return
       if (e.key === "ArrowRight") {
         setStep((s) => Math.min(s + 1, STEPS.length - 1))
         setImgError(false)
@@ -290,7 +295,7 @@ export function WalkthroughModal({ open, onClose }: WalkthroughModalProps) {
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [open, onClose])
+  }, [open, onClose, lightbox])
 
   useEffect(() => {
     if (open) setStep(0)
@@ -301,6 +306,21 @@ export function WalkthroughModal({ open, onClose }: WalkthroughModalProps) {
   const current = STEPS[step]
 
   return (
+    <>
+    {lightbox && (
+      <button
+        type="button"
+        className="fixed inset-0 z-[60] flex cursor-zoom-out items-center justify-center bg-black/95 p-6"
+        onClick={() => setLightbox(false)}
+        aria-label="Close fullscreen"
+      >
+        <img
+          src={current.imageSrc}
+          alt={`Phase ${current.num} — ${current.label} fullscreen`}
+          className="max-h-full max-w-full object-contain"
+        />
+      </button>
+    )}
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex w-[90vw] max-w-4xl flex-col rounded-[12px] border border-border bg-surface shadow-2xl">
         {/* Header */}
@@ -335,12 +355,19 @@ export function WalkthroughModal({ open, onClose }: WalkthroughModalProps) {
             style={{ minHeight: 260 }}
           >
             {!imgError ? (
-              <img
-                src={current.imageSrc}
-                alt={`Phase ${current.num} — ${current.label}`}
-                className="h-full w-full object-contain"
-                onError={() => setImgError(true)}
-              />
+              <button
+                type="button"
+                className="h-full w-full cursor-zoom-in"
+                onClick={() => setLightbox(true)}
+                aria-label="View fullscreen"
+              >
+                <img
+                  src={current.imageSrc}
+                  alt={`Phase ${current.num} — ${current.label}`}
+                  className="h-full w-full object-contain"
+                  onError={() => setImgError(true)}
+                />
+              </button>
             ) : (
               <div className="flex flex-col items-center gap-2 p-6 text-center">
                 <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-dim opacity-50">
@@ -435,5 +462,6 @@ export function WalkthroughModal({ open, onClose }: WalkthroughModalProps) {
         </div>
       </div>
     </div>
+    </>
   )
 }
