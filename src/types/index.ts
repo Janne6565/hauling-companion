@@ -5,6 +5,7 @@ export interface MissionLeg {
   body?: string
   scu?: number
   cargoType?: string
+  required?: boolean
 }
 
 export interface ParsedMission {
@@ -465,7 +466,6 @@ export interface StopItem {
   missionIndex: number
   cargoType?: string
   scu?: number
-  optional?: boolean
 }
 
 export type StopType = "PICKUP" | "DROPOFF" | "PICKUP_DROPOFF"
