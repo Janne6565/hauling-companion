@@ -109,7 +109,7 @@ export function PlanScreen({ missions, onBack, onNext }: PlanScreenProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          missions,
+          missions: missions.map((m) => ({ ...m, sourceImage: undefined })),
           currentLocation,
           ship,
           goal,

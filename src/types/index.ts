@@ -16,6 +16,8 @@ export interface ParsedMission {
   pickups: MissionLeg[]
   deliveries: MissionLeg[]
   rawOcrText?: string
+  // Downscaled JPEG data URL of the screenshot this mission was parsed from.
+  sourceImage?: string
 }
 
 export interface BoundingBox {

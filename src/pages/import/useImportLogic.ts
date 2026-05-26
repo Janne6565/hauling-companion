@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { fileToScaledDataUrl } from "@/lib/image"
 import type { ParsedMission, RegionConfig, UploadQueueItem } from "@/types"
 
 export function useImportLogic(initialItems: UploadQueueItem[] = []) {
@@ -45,7 +46,16 @@ export function useImportLogic(initialItems: UploadQueueItem[] = []) {
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
           const result: ParsedMission = await res.json()
-          updateItem(item.id, { status: "ok", result })
+          let sourceImage: string | undefined
+          try {
+            sourceImage = await fileToScaledDataUrl(item.file)
+          } catch {
+            sourceImage = undefined
+          }
+          updateItem(item.id, {
+            status: "ok",
+            result: { ...result, sourceImage },
+          })
         } catch {
           updateItem(item.id, { status: "error" })
         }
