@@ -465,6 +465,7 @@ export interface StopItem {
   missionIndex: number
   cargoType?: string
   scu?: number
+  optional?: boolean
 }
 
 export type StopType = "PICKUP" | "DROPOFF" | "PICKUP_DROPOFF"

@@ -85,6 +85,9 @@ export function HaulScreen({
     "sch:haul:delivered",
     []
   )
+  const [optionalOverrides, setOptionalOverrides] = useLocalStorage<
+    Record<string, boolean>
+  >("sch:haul:optionalOverrides", {})
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const stops = optimizeResult.stops
@@ -146,6 +149,13 @@ export function HaulScreen({
     )
   }
 
+  function toggleItemOptional(key: string, defaultOptional: boolean) {
+    setOptionalOverrides((prev) => {
+      const current = key in prev ? prev[key] : defaultOptional
+      return { ...prev, [key]: !current }
+    })
+  }
+
   if (!currentStop) {
     return (
       <div className="py-24 text-center text-sm text-text-dim">
@@ -173,6 +183,8 @@ export function HaulScreen({
           deliveryColorMap={deliveryColorMap}
           deliveredKeys={deliveredKeys}
           onToggleDelivered={toggleDelivered}
+          optionalOverrides={optionalOverrides}
+          onToggleOptional={toggleItemOptional}
           layout={layout}
           shipLabel={shipConfig?.label ?? ""}
           assignment={cargoAssignment}
@@ -255,6 +267,8 @@ export function HaulScreen({
             deliveryColorMap={deliveryColorMap}
             deliveredKeys={deliveredKeys}
             onToggleDelivered={toggleDelivered}
+            optionalOverrides={optionalOverrides}
+            onToggleOptional={toggleItemOptional}
           />
 
           {/* Navigation + mark complete */}
@@ -336,6 +350,8 @@ function StopCard({
   deliveryColorMap,
   deliveredKeys,
   onToggleDelivered,
+  optionalOverrides,
+  onToggleOptional,
 }: {
   stop: Stop
   stopIdx: number
@@ -344,6 +360,8 @@ function StopCard({
   deliveryColorMap: Map<number, { color: string; soft: string }>
   deliveredKeys: string[]
   onToggleDelivered: (key: string) => void
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
 }) {
   const typeColor =
     stop.stopType === "PICKUP"
@@ -391,9 +409,12 @@ function StopCard({
       {stop.pickups.length > 0 && (
         <PickupSection
           items={stop.pickups}
+          stopIdx={stopIdx}
           missions={missions}
           stops={stops}
           deliveryColorMap={deliveryColorMap}
+          optionalOverrides={optionalOverrides}
+          onToggleOptional={onToggleOptional}
         />
       )}
 
@@ -406,6 +427,8 @@ function StopCard({
           deliveryColorMap={deliveryColorMap}
           deliveredKeys={deliveredKeys}
           onToggle={onToggleDelivered}
+          optionalOverrides={optionalOverrides}
+          onToggleOptional={onToggleOptional}
         />
       )}
     </div>
@@ -416,14 +439,20 @@ function StopCard({
 
 function PickupSection({
   items,
+  stopIdx,
   missions,
   stops,
   deliveryColorMap,
+  optionalOverrides,
+  onToggleOptional,
 }: {
   items: StopItem[]
+  stopIdx: number
   missions: ParsedMission[]
   stops: Stop[]
   deliveryColorMap: Map<number, { color: string; soft: string }>
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
 }) {
   return (
     <div className="mb-3">
@@ -439,6 +468,12 @@ function PickupSection({
             item.scu ?? 0,
             stops
           )
+          const key = `${stopIdx}-p-${i}`
+          const defaultOptional = item.optional ?? false
+          const isOptional =
+            key in optionalOverrides
+              ? optionalOverrides[key]
+              : defaultOptional
 
           return (
             <div
@@ -447,7 +482,26 @@ function PickupSection({
               className="rounded-[6px] border border-border bg-surface-2 px-3 py-2.5"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-medium">{label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-medium">{label}</span>
+                  <button
+                    type="button"
+                    onClick={() => onToggleOptional(key, defaultOptional)}
+                    title={
+                      isOptional
+                        ? "Only one of the pickup stops needed — click to mark as required"
+                        : "All stops needed — click to mark as optional"
+                    }
+                    className={cn(
+                      "rounded-[3px] border px-1 py-0 font-mono text-[8px] uppercase tracking-[0.06em] cursor-pointer transition-colors select-none",
+                      isOptional
+                        ? "border-dashed border-border text-text-dim hover:border-muted-foreground hover:text-muted-foreground"
+                        : "border-border-strong text-muted-foreground hover:border-foreground hover:text-foreground"
+                    )}
+                  >
+                    {isOptional ? "any one" : "all"}
+                  </button>
+                </div>
                 {item.scu != null && (
                   <span className="font-mono text-[12px] text-muted-foreground">
                     {item.scu} SCU
@@ -499,6 +553,8 @@ function DropoffSection({
   deliveryColorMap,
   deliveredKeys,
   onToggle,
+  optionalOverrides,
+  onToggleOptional,
 }: {
   items: StopItem[]
   stopIdx: number
@@ -506,6 +562,8 @@ function DropoffSection({
   deliveryColorMap: Map<number, { color: string; soft: string }>
   deliveredKeys: string[]
   onToggle: (key: string) => void
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
 }) {
   const dc = deliveryColorMap.get(stopIdx)
   return (
@@ -523,45 +581,72 @@ function DropoffSection({
       </div>
       <div className="flex flex-col gap-1">
         {items.map((item, i) => {
-          const key = `${stopIdx}-d-${i}`
-          const done = deliveredKeys.includes(key)
+          const deliverKey = `${stopIdx}-d-${i}`
+          const done = deliveredKeys.includes(deliverKey)
           const label =
             item.cargoType ?? missions[item.missionIndex]?.cargoType ?? "cargo"
+          const defaultOptional = item.optional ?? false
+          const isOptional =
+            deliverKey in optionalOverrides
+              ? optionalOverrides[deliverKey]
+              : defaultOptional
 
           return (
-            <button
-              type="button"
-              key={key}
-              onClick={() => onToggle(key)}
+            <div
+              key={deliverKey}
               className={cn(
-                "flex w-full items-center gap-3 rounded-[6px] px-3 py-2 text-left transition-all",
-                "border",
+                "flex w-full items-center gap-3 rounded-[6px] px-3 py-2 border transition-all",
                 done
                   ? "border-success/30 bg-success/5 opacity-50"
-                  : "border-border hover:border-border-strong hover:bg-surface-2"
+                  : "border-border"
               )}
             >
-              <div
+              <button
+                type="button"
+                onClick={() => onToggle(deliverKey)}
+                className="flex flex-1 items-center gap-3 text-left"
+              >
+                <div
+                  className={cn(
+                    "grid h-4 w-4 shrink-0 place-items-center rounded border-2 transition-colors",
+                    done
+                      ? "border-success bg-success/20"
+                      : "border-border-strong"
+                  )}
+                >
+                  {done && (
+                    <span className="font-mono text-[10px] text-success">✓</span>
+                  )}
+                </div>
+                <span
+                  className={cn("flex-1 text-[13px]", done && "line-through")}
+                >
+                  {label}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleOptional(deliverKey, defaultOptional)}
+                title={
+                  isOptional
+                    ? "Only one of the pickup stops needed — click to mark as required"
+                    : "All stops needed — click to mark as optional"
+                }
                 className={cn(
-                  "grid h-4 w-4 shrink-0 place-items-center rounded border-2 transition-colors",
-                  done ? "border-success bg-success/20" : "border-border-strong"
+                  "rounded-[3px] border px-1 font-mono text-[8px] uppercase tracking-[0.06em] cursor-pointer transition-colors select-none",
+                  isOptional
+                    ? "border-dashed border-border text-text-dim hover:border-muted-foreground hover:text-muted-foreground"
+                    : "border-border-strong text-muted-foreground hover:border-foreground hover:text-foreground"
                 )}
               >
-                {done && (
-                  <span className="font-mono text-[10px] text-success">✓</span>
-                )}
-              </div>
-              <span
-                className={cn("flex-1 text-[13px]", done && "line-through")}
-              >
-                {label}
-              </span>
+                {isOptional ? "any one" : "all"}
+              </button>
               {item.scu != null && (
                 <span className="font-mono text-[11px] text-muted-foreground">
                   {item.scu} SCU
                 </span>
               )}
-            </button>
+            </div>
           )
         })}
       </div>
@@ -742,6 +827,8 @@ function FullscreenOverlay({
   deliveryColorMap,
   deliveredKeys,
   onToggleDelivered,
+  optionalOverrides,
+  onToggleOptional,
   layout,
   shipLabel,
   assignment,
@@ -761,6 +848,8 @@ function FullscreenOverlay({
   deliveryColorMap: Map<number, { color: string; soft: string }>
   deliveredKeys: string[]
   onToggleDelivered: (key: string) => void
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
   layout: ShipLayout | null
   shipLabel: string
   assignment: Map<string, number>
@@ -895,9 +984,12 @@ function FullscreenOverlay({
           {stop.pickups.length > 0 && (
             <PickupSection
               items={stop.pickups}
+              stopIdx={stopIdx}
               missions={missions}
               stops={stops}
               deliveryColorMap={deliveryColorMap}
+              optionalOverrides={optionalOverrides}
+              onToggleOptional={onToggleOptional}
             />
           )}
           {stop.dropoffs.length > 0 && (
@@ -908,6 +1000,8 @@ function FullscreenOverlay({
               deliveryColorMap={deliveryColorMap}
               deliveredKeys={deliveredKeys}
               onToggle={onToggleDelivered}
+              optionalOverrides={optionalOverrides}
+              onToggleOptional={onToggleOptional}
             />
           )}
         </div>
