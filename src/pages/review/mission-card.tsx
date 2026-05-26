@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react"
+import { useId, useState } from "react"
 import { cn } from "@/lib/utils"
 import { MISSION_COLORS, type MissionLeg, type ParsedMission } from "@/types"
 
@@ -8,6 +8,7 @@ interface MissionCardProps {
   onUpdate: (updated: ParsedMission) => void
   onRemove: () => void
   defaultEditing?: boolean
+  onViewScreenshot?: () => void
 }
 
 export function MissionCard({
@@ -16,10 +17,10 @@ export function MissionCard({
   onUpdate,
   onRemove,
   defaultEditing = false,
+  onViewScreenshot,
 }: MissionCardProps) {
   const [editing, setEditing] = useState(defaultEditing)
   const [draft, setDraft] = useState<ParsedMission>(mission)
-  const [showImage, setShowImage] = useState(false)
 
   const color = MISSION_COLORS[index % MISSION_COLORS.length]
   const hasXp = mission.xp != null && mission.xp > 0
@@ -392,11 +393,11 @@ export function MissionCard({
         >
           Edit
         </button>
-        {mission.sourceImage && (
+        {mission.sourceImage && onViewScreenshot && (
           <button
             type="button"
             className="rounded-[3px] border border-border px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-            onClick={() => setShowImage(true)}
+            onClick={onViewScreenshot}
           >
             Screenshot
           </button>
@@ -408,69 +409,6 @@ export function MissionCard({
         >
           Remove
         </button>
-      </div>
-
-      {showImage && mission.sourceImage && (
-        <ScreenshotLightbox
-          src={mission.sourceImage}
-          title={mission.title}
-          onClose={() => setShowImage(false)}
-        />
-      )}
-    </div>
-  )
-}
-
-function ScreenshotLightbox({
-  src,
-  title,
-  onClose,
-}: {
-  src: string
-  title: string
-  onClose: () => void
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <button
-        type="button"
-        aria-label="Close screenshot"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex max-h-[92vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-[12px] border border-border bg-surface shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-          <div className="min-w-0">
-            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-text-dim">
-              Source screenshot
-            </div>
-            <div className="truncate text-[14px] font-medium">
-              {title || "Untitled mission"}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="shrink-0 font-mono text-[13px] text-text-dim hover:text-foreground"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-        <div className="overflow-auto p-4">
-          <img
-            src={src}
-            alt={`Screenshot for ${title || "mission"}`}
-            className="block w-full rounded"
-          />
-        </div>
       </div>
     </div>
   )

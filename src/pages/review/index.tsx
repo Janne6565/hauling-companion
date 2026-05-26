@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { ParsedMission } from "@/types"
 import { MissionCard } from "./mission-card"
+import { ScreenshotLightbox } from "./screenshot-lightbox"
 
 interface ReviewScreenProps {
   missions: ParsedMission[]
@@ -15,12 +16,30 @@ export function ReviewScreen({
 }: ReviewScreenProps) {
   const [missions, setMissions] = useState<ParsedMission[]>(initial)
   const [newMissionIndex, setNewMissionIndex] = useState<number | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   function updateMission(index: number, updated: ParsedMission) {
     setMissions((prev) => prev.map((m, i) => (i === index ? updated : m)))
   }
 
   function removeMission(index: number) {
+    // Keep the open lightbox pointed at a valid mission after removal.
+    if (lightboxIndex != null) {
+      if (index === lightboxIndex) {
+        const remaining = missions
+          .map((m, i) => (i !== index && m.sourceImage ? i : -1))
+          .filter((i) => i >= 0)
+          .map((i) => (i > index ? i - 1 : i))
+        const target = remaining.find((i) => i >= index)
+        setLightboxIndex(
+          remaining.length === 0
+            ? null
+            : (target ?? remaining[remaining.length - 1])
+        )
+      } else if (index < lightboxIndex) {
+        setLightboxIndex(lightboxIndex - 1)
+      }
+    }
     setMissions((prev) => prev.filter((_, i) => i !== index))
   }
 
@@ -111,11 +130,23 @@ export function ReviewScreen({
                 onUpdate={(updated) => updateMission(i, updated)}
                 onRemove={() => removeMission(i)}
                 defaultEditing={i === newMissionIndex}
+                onViewScreenshot={() => setLightboxIndex(i)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {lightboxIndex != null && (
+        <ScreenshotLightbox
+          missions={missions}
+          activeIndex={lightboxIndex}
+          onChangeIndex={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onUpdate={updateMission}
+          onRemove={removeMission}
+        />
+      )}
     </div>
   )
 }
