@@ -17,6 +17,47 @@ import type {
 } from "@/types"
 import { MISSION_COLORS, MISSION_COLORS_SOFT, SHIPS } from "@/types"
 
+// ── Discovery groups ──────────────────────────────────────────────────────────
+
+/** Effective cargo label for a stop item, falling back to the mission's cargo type. */
+function effectiveCargoOf(item: StopItem, missions: ParsedMission[]): string {
+  return item.cargoType ?? missions[item.missionIndex]?.cargoType ?? ""
+}
+
+/** Stable key identifying one material within one mission. */
+function discoveryKeyOf(item: StopItem, missions: ParsedMission[]): string {
+  return `${item.missionIndex}|${effectiveCargoOf(item, missions)}`
+}
+
+/**
+ * Discovery groups: a mission's same-cargo pickups that were marked "all" with
+ * unset SCU, so the optimizer routed through every candidate location. The cargo
+ * really sits at only one of them, so finding it at one stop satisfies the rest.
+ * "any one" pickups collapse to a single stop in the optimizer, so only ALL-mode
+ * candidates ever appear at 2+ stops — which is exactly what we detect here.
+ * Returns groupKey → the stop indices where that pickup appears.
+ */
+function buildDiscoveryGroups(
+  stops: Stop[],
+  missions: ParsedMission[]
+): Map<string, number[]> {
+  const map = new Map<string, number[]>()
+  stops.forEach((stop, i) => {
+    for (const p of stop.pickups) {
+      if (p.scu != null && p.scu > 0) continue
+      if (!effectiveCargoOf(p, missions)) continue
+      const key = discoveryKeyOf(p, missions)
+      const arr = map.get(key) ?? []
+      if (!arr.includes(i)) arr.push(i)
+      map.set(key, arr)
+    }
+  })
+  for (const [key, arr] of [...map]) {
+    if (arr.length < 2) map.delete(key)
+  }
+  return map
+}
+
 // ── Color helpers ────────────────────────────────────────────────────────────
 
 /**
@@ -85,6 +126,11 @@ export function HaulScreen({
     "sch:haul:delivered",
     []
   )
+  // groupKey → stop index where the cargo was found (for ALL-mode discovery groups)
+  const [foundAt, setFoundAt] = useLocalStorage<Record<string, number>>(
+    "sch:haul:found",
+    {}
+  )
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const stops = optimizeResult.stops
@@ -100,6 +146,12 @@ export function HaulScreen({
 
   // Delivery groups for cargo assignment
   const deliveryGroups = useMemo(() => computeDeliveryGroups(stops), [stops])
+
+  // ALL-mode discovery groups: same-cargo candidate pickups across 2+ stops
+  const discoveryGroups = useMemo(
+    () => buildDiscoveryGroups(stops, missions),
+    [stops, missions]
+  )
 
   // Cargo grid assignment: "wx,wz" → delivery stop index
   const cargoAssignment = useMemo<Map<string, number>>(() => {
@@ -146,6 +198,16 @@ export function HaulScreen({
     )
   }
 
+  // Mark a discovery group as found at a given stop; calling with the same stop clears it.
+  function setFound(key: string, stopIdx: number) {
+    setFoundAt((prev) => {
+      const next = { ...prev }
+      if (next[key] === stopIdx) delete next[key]
+      else next[key] = stopIdx
+      return next
+    })
+  }
+
   if (!currentStop) {
     return (
       <div className="py-24 text-center text-sm text-text-dim">
@@ -173,6 +235,9 @@ export function HaulScreen({
           deliveryColorMap={deliveryColorMap}
           deliveredKeys={deliveredKeys}
           onToggleDelivered={toggleDelivered}
+          discoveryGroups={discoveryGroups}
+          foundAt={foundAt}
+          onSetFound={setFound}
           layout={layout}
           shipLabel={shipConfig?.label ?? ""}
           assignment={cargoAssignment}
@@ -255,6 +320,9 @@ export function HaulScreen({
             deliveryColorMap={deliveryColorMap}
             deliveredKeys={deliveredKeys}
             onToggleDelivered={toggleDelivered}
+            discoveryGroups={discoveryGroups}
+            foundAt={foundAt}
+            onSetFound={setFound}
           />
 
           {/* Navigation + mark complete */}
@@ -336,6 +404,9 @@ function StopCard({
   deliveryColorMap,
   deliveredKeys,
   onToggleDelivered,
+  discoveryGroups,
+  foundAt,
+  onSetFound,
 }: {
   stop: Stop
   stopIdx: number
@@ -344,6 +415,9 @@ function StopCard({
   deliveryColorMap: Map<number, { color: string; soft: string }>
   deliveredKeys: string[]
   onToggleDelivered: (key: string) => void
+  discoveryGroups: Map<string, number[]>
+  foundAt: Record<string, number>
+  onSetFound: (key: string, stopIdx: number) => void
 }) {
   const typeColor =
     stop.stopType === "PICKUP"
@@ -391,9 +465,13 @@ function StopCard({
       {stop.pickups.length > 0 && (
         <PickupSection
           items={stop.pickups}
+          stopIdx={stopIdx}
           missions={missions}
           stops={stops}
           deliveryColorMap={deliveryColorMap}
+          discoveryGroups={discoveryGroups}
+          foundAt={foundAt}
+          onSetFound={onSetFound}
         />
       )}
 
@@ -416,14 +494,22 @@ function StopCard({
 
 function PickupSection({
   items,
+  stopIdx,
   missions,
   stops,
   deliveryColorMap,
+  discoveryGroups,
+  foundAt,
+  onSetFound,
 }: {
   items: StopItem[]
+  stopIdx: number
   missions: ParsedMission[]
   stops: Stop[]
   deliveryColorMap: Map<number, { color: string; soft: string }>
+  discoveryGroups: Map<string, number[]>
+  foundAt: Record<string, number>
+  onSetFound: (key: string, stopIdx: number) => void
 }) {
   return (
     <div className="mb-3">
@@ -440,24 +526,41 @@ function PickupSection({
             stops
           )
 
+          const dKey = discoveryKeyOf(item, missions)
+          const isDiscovery = discoveryGroups.has(dKey)
+          const foundStop = isDiscovery ? foundAt[dKey] : undefined
+          const foundHere = foundStop === stopIdx
+          const foundElsewhere = foundStop != null && foundStop !== stopIdx
+
           return (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: per-stop cargo list, positionally stable
               key={i}
-              className="rounded-[6px] border border-border bg-surface-2 px-3 py-2.5"
+              className={cn(
+                "rounded-[6px] border px-3 py-2.5 transition-colors",
+                foundElsewhere
+                  ? "border-dashed border-border bg-surface-2/40 opacity-60"
+                  : "border-border bg-surface-2"
+              )}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-medium">{label}</span>
-                {item.scu != null && (
+                {item.scu != null && item.scu > 0 && (
                   <span className="font-mono text-[12px] text-muted-foreground">
                     {item.scu} SCU
                   </span>
                 )}
               </div>
-              {destinations.length > 0 && (
+
+              {/* Where this cargo goes — hidden once we know it's not collected here */}
+              {!foundElsewhere && destinations.length > 0 && (
                 <div className="mt-1.5 flex flex-col gap-1">
                   {destinations.map((dest, di) => {
                     const dc = deliveryColorMap.get(dest.stopIdx)
+                    const zoneScu = (stops[dest.stopIdx]?.dropoffs ?? [])
+                      .filter((d) => d.missionIndex === item.missionIndex)
+                      .reduce((a, d) => a + (d.scu ?? 0), 0)
+                    const placeScu = dest.scu > 0 ? dest.scu : zoneScu
                     return (
                       <div
                         // biome-ignore lint/suspicious/noArrayIndexKey: per-item destination list, positionally stable
@@ -469,9 +572,7 @@ function PickupSection({
                           style={{ background: dc?.color ?? "var(--border)" }}
                         />
                         <span>
-                          Place{" "}
-                          {destinations.length > 1 ? `${dest.scu} SCU` : "all"}{" "}
-                          in{" "}
+                          Place {placeScu > 0 ? `${placeScu} SCU` : "all"} in{" "}
                           <span style={{ color: dc?.color ?? "inherit" }}>
                             {dest.location}
                           </span>{" "}
@@ -480,6 +581,43 @@ function PickupSection({
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {/* Discovery group controls */}
+              {isDiscovery && (
+                <div className="mt-2">
+                  {foundElsewhere ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-[5px] border border-warning/40 bg-warning/10 px-2.5 py-1.5">
+                      <span className="font-mono text-[10.5px] leading-snug text-warning">
+                        ⚠ Already collected at{" "}
+                        {stops[foundStop]?.location ?? "another stop"} — skip
+                        pickup here
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSetFound(dKey, stopIdx)}
+                        className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.06em] text-text-dim transition-colors hover:border-border-strong hover:text-foreground"
+                      >
+                        Found here instead
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSetFound(dKey, stopIdx)}
+                      className={cn(
+                        "flex w-full items-center justify-center gap-1.5 rounded-[5px] border px-2.5 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.06em] transition-colors",
+                        foundHere
+                          ? "border-success/40 bg-success/10 text-success"
+                          : "border-dashed border-border-strong text-muted-foreground hover:border-primary hover:text-primary"
+                      )}
+                    >
+                      {foundHere
+                        ? "✓ Found here — tap to undo"
+                        : "Found it here?"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -742,6 +880,9 @@ function FullscreenOverlay({
   deliveryColorMap,
   deliveredKeys,
   onToggleDelivered,
+  discoveryGroups,
+  foundAt,
+  onSetFound,
   layout,
   shipLabel,
   assignment,
@@ -761,6 +902,9 @@ function FullscreenOverlay({
   deliveryColorMap: Map<number, { color: string; soft: string }>
   deliveredKeys: string[]
   onToggleDelivered: (key: string) => void
+  discoveryGroups: Map<string, number[]>
+  foundAt: Record<string, number>
+  onSetFound: (key: string, stopIdx: number) => void
   layout: ShipLayout | null
   shipLabel: string
   assignment: Map<string, number>
@@ -895,9 +1039,13 @@ function FullscreenOverlay({
           {stop.pickups.length > 0 && (
             <PickupSection
               items={stop.pickups}
+              stopIdx={stopIdx}
               missions={missions}
               stops={stops}
               deliveryColorMap={deliveryColorMap}
+              discoveryGroups={discoveryGroups}
+              foundAt={foundAt}
+              onSetFound={onSetFound}
             />
           )}
           {stop.dropoffs.length > 0 && (
