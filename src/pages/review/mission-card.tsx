@@ -16,7 +16,6 @@ function isChoiceGroupDefault(leg: MissionLeg, allPickups: MissionLeg[]): boolea
 /** Effective display state: is this leg currently "one of many" (optional)? */
 function legIsOptional(leg: MissionLeg, allPickups: MissionLeg[]): boolean {
   if (leg.required === true) return false
-  if (leg.required === false) return true
   return isChoiceGroupDefault(leg, allPickups)
 }
 
@@ -407,64 +406,31 @@ export function MissionCard({
                 ? `s · ${collapsedDeliveries.length}`
                 : ""}
             </div>
-            {collapsedDeliveries.map((d) => {
-              const legKey = `${d.location}|${d.cargoType ?? ""}`
-              const optional = d.required === false
-              return (
+            {collapsedDeliveries.map((d) => (
+              <div
+                key={`${d.location}|${d.cargoType ?? ""}`}
+                className="grid items-start gap-2.5"
+                style={{ gridTemplateColumns: "16px 1fr auto" }}
+              >
                 <div
-                  key={legKey}
-                  className="grid items-start gap-2.5"
-                  style={{ gridTemplateColumns: "16px 1fr auto" }}
-                >
-                  <div
-                    className="ml-1 mt-[5px] h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: color }}
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px]">{d.location}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newRequired = optional ? undefined : false
-                          onUpdate({
-                            ...mission,
-                            deliveries: mission.deliveries.map((raw) =>
-                              `${raw.location}|${raw.cargoType ?? ""}` === legKey
-                                ? { ...raw, required: newRequired }
-                                : raw
-                            ),
-                          })
-                        }}
-                        title={
-                          optional
-                            ? "This dropoff is marked optional — click to require it"
-                            : "This dropoff is required — click to mark as optional"
-                        }
-                        className={cn(
-                          "shrink-0 rounded-[3px] border px-1 py-0 font-mono text-[8px] uppercase tracking-[0.06em] cursor-pointer transition-colors select-none",
-                          optional
-                            ? "border-dashed border-border text-text-dim hover:border-success hover:text-success"
-                            : "border-[oklch(0.50_0.10_150)]/40 text-success hover:border-[oklch(0.50_0.10_150)]"
-                        )}
-                      >
-                        {optional ? "optional" : "required"}
-                      </button>
-                    </div>
-                    {(d.cargoType ?? mission.cargoType) && (
-                      <span className="font-mono text-[10.5px] text-text-dim">
-                        {d.cargoType ?? mission.cargoType}
-                      </span>
-                    )}
-                  </div>
-                  {d.scu != null && (
-                    <span className="mt-[2px] font-mono text-[11px] font-medium text-muted-foreground shrink-0">
-                      {d.scu} SCU
+                  className="ml-1 mt-[5px] h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[13px]">{d.location}</span>
+                  {(d.cargoType ?? mission.cargoType) && (
+                    <span className="font-mono text-[10.5px] text-text-dim">
+                      {d.cargoType ?? mission.cargoType}
                     </span>
                   )}
                 </div>
-              )
-            })}
+                {d.scu != null && (
+                  <span className="mt-[2px] font-mono text-[11px] font-medium text-muted-foreground shrink-0">
+                    {d.scu} SCU
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
