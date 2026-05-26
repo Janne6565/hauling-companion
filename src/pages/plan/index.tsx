@@ -647,6 +647,18 @@ function RouteTimeline({
   missions: ParsedMission[]
   missionIndices: number[]
 }) {
+  // Per-item optional overrides: key is "stopIdx-p|d-itemIdx", value is the overridden optional state
+  const [optionalOverrides, setOptionalOverrides] = useState<
+    Record<string, boolean>
+  >({})
+
+  function toggleItemOptional(key: string, defaultOptional: boolean) {
+    setOptionalOverrides((prev) => {
+      const current = key in prev ? prev[key] : defaultOptional
+      return { ...prev, [key]: !current }
+    })
+  }
+
   return (
     <div className="flex flex-col">
       {/* Start node */}
@@ -678,6 +690,8 @@ function RouteTimeline({
             index={i}
             missions={missions}
             missionIndices={missionIndices}
+            optionalOverrides={optionalOverrides}
+            onToggleOptional={toggleItemOptional}
           />
         </Fragment>
       ))}
@@ -715,11 +729,15 @@ function StopCard({
   index,
   missions,
   missionIndices,
+  optionalOverrides,
+  onToggleOptional,
 }: {
   stop: Stop
   index: number
   missions: ParsedMission[]
   missionIndices: number[]
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
 }) {
   const typeColor =
     stop.stopType === "PICKUP"
@@ -768,17 +786,25 @@ function StopCard({
             <ItemList
               label="PICK UP"
               items={stop.pickups}
+              stopIdx={index}
+              itemType="p"
               missions={missions}
               bullet="pickup"
+              optionalOverrides={optionalOverrides}
+              onToggleOptional={onToggleOptional}
             />
           )}
           {stop.dropoffs.length > 0 && (
             <ItemList
               label="DELIVER"
               items={stop.dropoffs}
+              stopIdx={index}
+              itemType="d"
               missions={missions}
               bullet="dropoff"
               missionIndices={missionIndices}
+              optionalOverrides={optionalOverrides}
+              onToggleOptional={onToggleOptional}
             />
           )}
         </div>
@@ -790,13 +816,21 @@ function StopCard({
 function ItemList({
   label,
   items,
+  stopIdx,
+  itemType,
   missions,
+  optionalOverrides,
+  onToggleOptional,
 }: {
   label: string
   items: StopItem[]
+  stopIdx: number
+  itemType: "p" | "d"
   missions: ParsedMission[]
   bullet: "pickup" | "dropoff"
   missionIndices?: number[]
+  optionalOverrides: Record<string, boolean>
+  onToggleOptional: (key: string, defaultOptional: boolean) => void
 }) {
   return (
     <div>
@@ -806,6 +840,10 @@ function ItemList({
       {items.map((item, i) => {
         const mIdx = item.missionIndex
         const color = MISSION_COLORS[mIdx % MISSION_COLORS.length]
+        const key = `${stopIdx}-${itemType}-${i}`
+        const defaultOptional = item.optional ?? false
+        const isOptional =
+          key in optionalOverrides ? optionalOverrides[key] : defaultOptional
         return (
           <div
             // biome-ignore lint/suspicious/noArrayIndexKey: per-stop cargo list, positionally stable
@@ -819,6 +857,23 @@ function ItemList({
             <span className="text-[12px]">
               {item.cargoType ?? missions[mIdx]?.cargoType ?? "cargo"}
             </span>
+            <button
+              type="button"
+              onClick={() => onToggleOptional(key, defaultOptional)}
+              title={
+                isOptional
+                  ? "Only one of the pickup stops needed — click to mark as required"
+                  : "All stops needed — click to mark as optional"
+              }
+              className={cn(
+                "ml-1 rounded-[3px] border px-1 py-0 font-mono text-[8px] uppercase tracking-[0.06em] cursor-pointer transition-colors select-none",
+                isOptional
+                  ? "border-dashed border-border text-text-dim hover:border-muted-foreground hover:text-muted-foreground"
+                  : "border-border-strong text-muted-foreground hover:border-foreground hover:text-foreground"
+              )}
+            >
+              {isOptional ? "any one" : "all"}
+            </button>
             {item.scu != null && (
               <span className="ml-auto font-mono text-[11px] text-muted-foreground">
                 {item.scu} SCU
